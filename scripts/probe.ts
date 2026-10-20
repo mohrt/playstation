@@ -158,11 +158,23 @@ let energy = 0;
 let sum = 0;
 let samples = 0;
 const start = performance.now();
+// --dualshock plugs in a DualShock (in analog mode) and reports its rumble.
+if (args.includes('--dualshock')) {
+  machine.sio.pads[0].type = 'dualshock';
+  machine.sio.pads[0].analog = true;
+}
+let strongest = [0, 0];
+let rumbleFrames = 0;
 for (let frame = 1; frame <= frames; frame++) {
   let buttons = 0;
   for (const press of presses) if (frame >= press.frame && frame < press.frame + 8) buttons |= press.button;
   machine.sio.pads[0].state = { ...idlePad(), buttons };
   machine.runFrame();
+  const { smallMotor, largeMotor } = machine.sio.pads[0];
+  if (smallMotor || largeMotor) {
+    rumbleFrames++;
+    strongest = [Math.max(strongest[0], smallMotor), Math.max(strongest[1], largeMotor)];
+  }
   if (saveAt && frame === Number(saveAt)) {
     writeFileSync(saveFile, await encodeState(captureState(machine)));
     console.log(`state saved at frame ${frame} → ${saveFile}`);
@@ -202,6 +214,10 @@ if (args.includes('--spu')) {
   console.log(`gpu frameCount ${machine.gpu.frameCount} after ${frames} runFrame calls; line ${machine.gpu.line} event ${gpuPrivate.lineEvent.time} fraction ${gpuPrivate.lineFraction} mode ${machine.gpu.displayMode.toString(16)}`);
   console.log(`timer event at ${timers.event.time}, now ${machine.sched.now}, lastSync ${timers.lastSync}, t2 pending ${timers.counters[2].pending} irqDone ${timers.counters[2].irqDone} waiting ${timers.counters[2].waiting}`);
   console.log(`irq mask ${machine.irq.mask.toString(16)} stat ${machine.irq.stat.toString(16)}; timers ${machine.timers.counters.map((t) => `count ${t.count.toString(16)} mode ${t.mode.toString(16)} target ${t.target.toString(16)}`).join(' | ')}`);
+}
+if (args.includes('--dualshock')) {
+  const pad = machine.sio.pads[0] as unknown as { rumbleMap: number[]; analog: boolean };
+  console.log(`DualShock: ${pad.analog ? 'analog' : 'digital'}, motor map ${pad.rumbleMap.map((b) => b.toString(16)).join(' ')}, rumbled ${rumbleFrames} frames (small ${strongest[0]}, large ${strongest[1]})`);
 }
 if (sioLog.length) console.log(`Log:\n${sioLog.join(' ')}`);
 const lines = tty.trim().split('\n');

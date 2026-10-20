@@ -59,7 +59,7 @@ async function handle(message: ToWorker): Promise<void> {
         }
       }
       flushTty();
-      send({ type: 'frame', speed: emu.canRun && !paused ? emu.speed : 1 });
+      send({ type: 'frame', speed: emu.canRun && !paused ? emu.speed : 1, rumble: emu.rumble(emu.canRun && !paused) });
       return;
     case 'pause':
       paused = message.paused;

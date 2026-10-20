@@ -1,3 +1,4 @@
+import type { Rumble } from '../protocol';
 import { idlePad } from '../sio/pad';
 import { PadButton, type PadState } from './controllers';
 
@@ -147,6 +148,36 @@ function browserGamepads(): readonly (GamepadLike | null)[] {
   } catch {
     // Blocked by a permissions policy.
     return [];
+  }
+}
+
+/** The Gamepad API's rumble, where the browser has it (Chrome and Edge do; Firefox and Safari don't yet). */
+interface VibrationActuatorLike {
+  playEffect?(type: 'dual-rumble', params: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown>;
+  reset?(): Promise<unknown>;
+}
+
+const RUMBLE_REFRESH_MS = 100;
+const RUMBLE_EFFECT_MS = 200;
+
+/** Rumbles gamepads as the console's DualShocks do: effects are short, so they're replayed while the motors run. */
+export class RumbleOutput {
+  private readonly playing = new Map<number, Rumble & { at: number }>();
+
+  update(pad: GamepadLike, rumble: Rumble, now: number): void {
+    const actuator = (pad as { vibrationActuator?: VibrationActuatorLike | null }).vibrationActuator;
+    if (!actuator?.playEffect) return;
+    const last = this.playing.get(pad.index);
+    if (rumble.strong === 0 && rumble.weak === 0) {
+      if (last) {
+        this.playing.delete(pad.index);
+        actuator.reset?.().catch(() => {});
+      }
+      return;
+    }
+    if (last && last.strong === rumble.strong && last.weak === rumble.weak && now - last.at < RUMBLE_REFRESH_MS) return;
+    this.playing.set(pad.index, { ...rumble, at: now });
+    actuator.playEffect('dual-rumble', { duration: RUMBLE_EFFECT_MS, strongMagnitude: rumble.strong, weakMagnitude: rumble.weak }).catch(() => {});
   }
 }
 

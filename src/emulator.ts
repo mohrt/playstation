@@ -1,6 +1,6 @@
 import type { LoadedMedia } from './media';
 import { PlayStation } from './playstation';
-import type { ConsoleStatus } from './protocol';
+import type { ConsoleStatus, Rumble } from './protocol';
 import type { Screen } from './render/screen';
 import { CPU_HZ } from './scheduler';
 import type { PadState, PadType } from './sio/pad';
@@ -137,6 +137,11 @@ export class Emulator {
       pad.type = type;
       pad.analog = false;
     });
+  }
+
+  /** Each pad's motors (still while the console isn't `running`). */
+  rumble(running: boolean): Rumble[] {
+    return this.machine.sio.pads.map((pad) => (running ? { strong: pad.largeMotor / 255, weak: pad.smallMotor / 255 } : { strong: 0, weak: 0 }));
   }
 
   /** The DualShock's Analog button. */

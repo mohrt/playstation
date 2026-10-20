@@ -30,11 +30,17 @@ export interface ConsoleStatus {
   pads: { type: PadType; analog: boolean }[];
 }
 
+/** A DualShock's motors, 0-1: the large (strong) one and the small (weak) one. */
+export interface Rumble {
+  strong: number;
+  weak: number;
+}
+
 /** What the worker tells the page. */
 export type FromWorker =
   | { type: 'ready' }
   /** A slice of time was run and shown; `speed` is how close to full speed the console keeps up. */
-  | { type: 'frame'; speed: number }
+  | { type: 'frame'; speed: number; rumble: Rumble[] }
   | { type: 'status'; status: ConsoleStatus }
   | { type: 'media-loaded'; title: string; details: string; kind: 'disc' | 'exe'; swapped: boolean }
   | { type: 'memory-card'; slot: number; data: Uint8Array }

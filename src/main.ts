@@ -1,10 +1,10 @@
 import { AudioOutput } from './audio/audio-output';
 import { fetchGame, loadGameManifest, type BundledGame } from './games';
 import { ControllerInput } from './io/controllers';
-import { GamepadManager, padName, readGamepad } from './io/gamepad-input';
+import { GamepadManager, padName, readGamepad, RumbleOutput } from './io/gamepad-input';
 import { KeyboardInput } from './io/keyboard-input';
 import { fileKind, gameName, STATE_EXTENSION, titleFromFileName } from './media';
-import type { ConsoleStatus, FromWorker, ToWorker } from './protocol';
+import type { ConsoleStatus, FromWorker, Rumble, ToWorker } from './protocol';
 import { SCREEN_ASPECT } from './render/screen';
 import { formattedCard } from './sio/memory-card';
 import type { PadState, PadType } from './sio/pad';
@@ -22,6 +22,7 @@ import { OnScreenPad } from './ui/touch-pad';
 const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot'];
 const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
 const PLAYERS = 2;
+const STILL: Rumble = { strong: 0, weak: 0 };
 
 function requireElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -94,6 +95,7 @@ async function main(): Promise<void> {
     let paused = false;
     let fastForward = false;
     let waitingForFrame = false;
+    let rumble: Rumble[] = [];
     let pendingState: { resolve: (value: { bytes: Uint8Array; title: string }) => void; reject: (error: Error) => void } | null = null;
     let pendingLoad: { resolve: () => void; reject: (error: Error) => void } | null = null;
     const focusScreen = () => canvas.focus();
@@ -115,6 +117,7 @@ async function main(): Promise<void> {
       switch (message.type) {
         case 'frame':
           waitingForFrame = false;
+          rumble = message.rumble;
           if (Math.abs(message.speed - speed) > 0.02) {
             speed = message.speed;
             updateStatus();
@@ -323,6 +326,7 @@ async function main(): Promise<void> {
       },
     }).attach(window);
     const gamepads = new GamepadManager();
+    const rumbleOutput = new RumbleOutput();
     gamepads.attach(window);
     const gamepadStatus = requireElement<HTMLElement>('.gamepad-status');
 
@@ -365,12 +369,14 @@ async function main(): Promise<void> {
     // --- Main loop ----------------------------------------------------------------------
     let lastPadNames = '';
     let lastPads = '';
-    const pollInputs = () => {
+    const pollInputs = (now: number) => {
       const pads = gamepads.connected();
       for (let player = 0; player < PLAYERS; player++) {
         const gamepad = pads[player];
-        if (gamepad) controllers[player].set('gamepad', readGamepad(gamepad));
-        else controllers[player].clear('gamepad');
+        if (gamepad) {
+          controllers[player].set('gamepad', readGamepad(gamepad));
+          rumbleOutput.update(gamepad, rumble[player] ?? STILL, now);
+        } else controllers[player].clear('gamepad');
       }
       const states: PadState[] = controllers.map((controller) => controller.state);
       const key = JSON.stringify(states);
@@ -390,7 +396,7 @@ async function main(): Promise<void> {
 
     let last = performance.now();
     const frame = (now: number) => {
-      pollInputs();
+      pollInputs(now);
       // The worker gets the next slice of time only once it has shown the last one, so a slow
       // computer runs the game slower rather than piling up work.
       if (!waitingForFrame) {

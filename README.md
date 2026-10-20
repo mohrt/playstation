@@ -16,7 +16,7 @@ It starts with [OpenBIOS](https://github.com/grumpycoders/pcsx-redux/tree/main/s
 
 The toolbar has pause, the console's Reset button, power cycle and full screen, and what is plugged into the controller ports:
 
-- **Digital pad** or **DualShock**, for each port. A DualShock starts in digital mode, as the real one does; games that use the sticks switch it to analog themselves, and **Analog** (player 1's Analog button) switches it by hand for the others.
+- **Digital pad** or **DualShock**, for each port. A DualShock starts in digital mode, as the real one does; games that use the sticks switch it to analog themselves, and **Analog** (player 1's Analog button) switches it by hand for the others. Games that vibrate the DualShock (Crash Bandicoot: Warped, Metal Gear Solid and so on) rumble your gamepad, in browsers that support it (Chrome and Edge).
 
 Save states keep the whole console in the browser, except the disc: a state remembers which disc it was made with (by its serial) and asks for that disc to be put in before it is loaded. States of programs dropped as an `.exe` carry the program. They can be exported and imported as `.psxstate` files.
 

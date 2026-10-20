@@ -45,11 +45,18 @@ export class Pad {
   private command = 0;
   /** Whether the pad drives /ACK after a byte (every byte but the last). */
   private acking = false;
+  /** Which motor each of the 42h command's six parameter bytes drives (set with 4Dh): 00h small, 01h large, FFh none. */
+  private rumbleMap = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+  /** The DualShock's motors: the small one is on or off (0 or 255), the large one has a speed (0-255). */
+  smallMotor = 0;
+  largeMotor = 0;
   state: PadState = idlePad();
 
   reset(): void {
     this.config = false;
     this.analog = this.type === 'dualshock' && this.analog;
+    this.rumbleMap.fill(0xff);
+    this.smallMotor = this.largeMotor = 0;
     this.deselect();
   }
 
@@ -72,8 +79,8 @@ export class Pad {
     if (position === 1) {
       this.command = value;
       this.response = this.respond(value);
-    } else if (position === 3) {
-      this.parameter(value);
+    } else if (position >= 3) {
+      this.parameter(value, position - 3);
     }
     const index = position - 1;
     if (index >= this.response.length) return { reply: 0xff, ack: false };
@@ -112,14 +119,23 @@ export class Pad {
       case 0x4c:
         return [0xf3, 0x5a, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00];
       case 0x4d:
-        return [0xf3, 0x5a, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+        return [0xf3, 0x5a, ...this.rumbleMap];
       default:
         return [0xf3, 0x5a, 0, 0, 0, 0, 0, 0];
     }
   }
 
-  /** The first parameter byte, which some commands' replies depend on. */
-  private parameter(value: number): void {
+  /** A parameter byte (`index` 0 is the first): some commands' replies depend on the first, and 42h and 4Dh use all six for the motors. */
+  private parameter(value: number, index: number): void {
+    if (this.type === 'dualshock' && index < 6) {
+      if (this.command === 0x42) {
+        if (this.rumbleMap[index] === 0x00) this.smallMotor = value & 0x01 ? 0xff : 0;
+        else if (this.rumbleMap[index] === 0x01) this.largeMotor = value;
+      } else if (this.command === 0x4d && this.config) {
+        this.rumbleMap[index] = value;
+      }
+    }
+    if (index !== 0) return;
     switch (this.command) {
       case 0x43:
         // Entering or leaving configuration takes effect after this transfer's reply was chosen.

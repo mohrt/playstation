@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RumbleOutput } from '../src/io/gamepad-input';
 import { Irq } from '../src/irq';
 import { PlayStation } from '../src/playstation';
 import { formattedCard, MEMORY_CARD_SIZE } from '../src/sio/memory-card';
@@ -57,6 +58,48 @@ describe('controllers and memory cards', () => {
     const { replies } = exchange(m, 0, [0x01, 0x42, 0, 0, 0, 0, 0, 0, 0]);
     expect(replies[1]).toBe(0x73);
     expect(replies.slice(5)).toEqual([128, 255, 0, 128]);
+  });
+
+  it("runs a DualShock's motors from the bytes 4Dh maps them to", () => {
+    const m = machine();
+    const pad = m.sio.pads[0];
+    pad.type = 'dualshock';
+    exchange(m, 0, [0x01, 0x43, 0x00, 0x01, 0x00]); // enter config
+    const { replies } = exchange(m, 0, [0x01, 0x4d, 0x00, 0x00, 0x01, 0xff, 0xff, 0xff, 0xff]); // small motor, then large
+    expect(replies.slice(3)).toEqual([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]); // the old mapping
+    exchange(m, 0, [0x01, 0x43, 0x00, 0x00, 0x00, 0, 0, 0, 0]); // leave config
+    exchange(m, 0, [0x01, 0x42, 0x00, 0x01, 0xc0]);
+    expect([pad.smallMotor, pad.largeMotor]).toEqual([0xff, 0xc0]);
+    exchange(m, 0, [0x01, 0x42, 0x00, 0x00, 0x00]);
+    expect([pad.smallMotor, pad.largeMotor]).toEqual([0, 0]);
+  });
+
+  it('replays rumble on a gamepad while the motors run, and stops it after', () => {
+    const effects: string[] = [];
+    const gamepad = {
+      id: 'pad',
+      index: 0,
+      mapping: 'standard',
+      axes: [],
+      buttons: [],
+      vibrationActuator: {
+        playEffect: (_type: string, params: { strongMagnitude: number; weakMagnitude: number }) => {
+          effects.push(`${params.strongMagnitude}/${params.weakMagnitude}`);
+          return Promise.resolve('complete');
+        },
+        reset: () => {
+          effects.push('reset');
+          return Promise.resolve('complete');
+        },
+      },
+    };
+    const output = new RumbleOutput();
+    output.update(gamepad, { strong: 0.5, weak: 1 }, 0);
+    output.update(gamepad, { strong: 0.5, weak: 1 }, 50);
+    output.update(gamepad, { strong: 0.5, weak: 1 }, 120);
+    output.update(gamepad, { strong: 0, weak: 0 }, 130);
+    output.update(gamepad, { strong: 0, weak: 0 }, 140);
+    expect(effects).toEqual(['0.5/1', '0.5/1', 'reset']);
   });
 
   it('leaves a port with nothing answering unacknowledged', () => {
