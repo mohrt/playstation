@@ -1,9 +1,10 @@
+import { ChdFile } from './disc/chd';
 import { BlobSource, Disc, discInfo, type ByteSource, type DiscInfo } from './disc/disc';
 import { isPsExe, parsePsExe, type PsExe } from './exe';
 
 export const STATE_EXTENSION = '.psxstate';
 export const MEMORY_CARD_EXTENSIONS = ['.mcr', '.mcd', '.mem', '.gme', '.srm', '.mc'];
-const DISC_EXTENSIONS = ['.cue', '.bin', '.img', '.iso'];
+const DISC_EXTENSIONS = ['.cue', '.bin', '.img', '.iso', '.chd'];
 const EXE_EXTENSIONS = ['.exe', '.psx', '.ps-exe'];
 
 const extension = (name: string) => {
@@ -55,6 +56,8 @@ const REGION_NAMES = { 'ntsc-u': 'NTSC-U', 'ntsc-j': 'NTSC-J', pal: 'PAL' } as c
  */
 export function loadMedia(files: File[]): LoadedMedia {
   const reader = new FileReaderSync();
+  const chd = files.find((file) => extension(file.name) === '.chd');
+  if (chd) return discMedia(Disc.fromChd(new ChdFile(new BlobSource(chd))), chd.name);
   const cue = files.find((file) => extension(file.name) === '.cue');
   if (cue) {
     const sources = new Map<string, ByteSource>(files.map((file) => [file.name, new BlobSource(file)]));

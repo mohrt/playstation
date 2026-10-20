@@ -2,7 +2,7 @@
 
 **Play it at [mohrt.github.io/playstation](https://mohrt.github.io/playstation/)**
 
-A PlayStation emulator written from scratch in TypeScript: the R3000A CPU with its load and branch delay slots and COP0 exceptions; the GTE, which passes all 1,150 of the ps1-tests GTE command and register tests; a software GPU with flat, Gouraud-shaded and textured polygons, sprites and lines, 4-, 8- and 15-bit textures, texture windows, the four blending modes, dithering, the mask bit and 24-bit video; the MDEC that decodes full-motion video; the SPU's 24 voices with ADSR envelopes, pitch modulation, noise and reverb; the CD-ROM controller with CD audio and XA-ADPCM streams; DMA, the timers, pads, the DualShock and memory cards. Drop a `.cue` with its `.bin` files (or a single `.bin` or `.iso` disc image, or a PlayStation `.exe`) onto the page to play it.
+A PlayStation emulator written from scratch in TypeScript: the R3000A CPU with its load and branch delay slots and COP0 exceptions; the GTE, which passes all 1,150 of the ps1-tests GTE command and register tests; a software GPU with flat, Gouraud-shaded and textured polygons, sprites and lines, 4-, 8- and 15-bit textures, texture windows, the four blending modes, dithering, the mask bit and 24-bit video; the MDEC that decodes full-motion video; the SPU's 24 voices with ADSR envelopes, pitch modulation, noise and reverb; the CD-ROM controller with CD audio and XA-ADPCM streams; DMA, the timers, pads, the DualShock and memory cards. Drop a `.cue` with its `.bin` files (or a `.chd`, a single `.bin` or `.iso` disc image, or a PlayStation `.exe`) onto the page to play it.
 
 It starts with [OpenBIOS](https://github.com/grumpycoders/pcsx-redux/tree/main/src/mips/openbios), the free BIOS written by the PCSX-Redux team, so no BIOS of your own is needed (see below). The emulation runs in a Web Worker, drawing through an OffscreenCanvas and sending its sound straight to an AudioWorklet, so the page stays responsive.
 
@@ -24,7 +24,7 @@ A status line shows what's in and how fast it runs: on a computer too slow to ke
 
 ## Discs
 
-Drop the `.cue` sheet and all the `.bin` files it names together (choose them together in **Choose files...**), or a single `.bin` (2352-byte sectors) or `.iso` (2048-byte sectors) image. The files are read from your disk as the game asks for them, never copied into the browser, so even a 700 MB disc starts at once. Multi-track discs play their CD audio tracks. For multi-disc games, dropping the next disc of the game that is running (or choosing it with **Swap disc...**) changes discs without restarting: the lid opens for a second and closes on the new disc, as the game expects. CHD and PBP images aren't supported yet: convert them to CUE/BIN first.
+Drop the `.cue` sheet and all the `.bin` files it names together (choose them together in **Choose files...**), a `.chd` (MAME's compressed disc format, as made by `chdman createcd`), or a single `.bin` (2352-byte sectors) or `.iso` (2048-byte sectors) image. The files are read from your disk as the game asks for them, never copied into the browser, so even a 700 MB disc starts at once. Multi-track discs play their CD audio tracks. For multi-disc games, dropping the next disc of the game that is running (or choosing it with **Swap disc...**) changes discs without restarting: the lid opens for a second and closes on the new disc, as the game expects. CHDs compressed with Zstandard (`chdman createcd -c cdzs`) aren't supported: recompress them with the default codecs. PBP images aren't supported yet: convert them to CUE/BIN first.
 
 PAL games run at 50 Hz and NTSC games at 60 Hz, as the game asks the GPU for. The CD-ROM reports the disc's region (from its serial or licence text) to the game.
 
@@ -55,7 +55,7 @@ Tested so far, booting through OpenBIOS:
 
 They run at full speed in Chrome with headroom to spare: in Node the heaviest (Final Fantasy VII's field scenes, Metal Gear Solid, Gran Turismo) emulate 105-115 frames a second, twice what PAL needs. Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
 
-What isn't there yet: CHD and PBP images, the multitap, light guns and mice, and the PocketStation. The SPU interpolates with a cubic curve rather than the hardware's Gaussian table, and the CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
+What isn't there yet: PBP images, the multitap, light guns and mice, and the PocketStation. The SPU interpolates with a cubic curve rather than the hardware's Gaussian table, and the CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
 
 ## Accuracy
 

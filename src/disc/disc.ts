@@ -1,3 +1,5 @@
+import { ChdTrackSource, type ChdFile } from './chd';
+
 /** A raw CD sector: 12 sync bytes, a 4-byte header, then 2336 bytes (subheader and data for mode 2). */
 export const SECTOR_SIZE = 2352;
 /** Disc positions count from 00:02:00; the 2-second lead-in before it holds no data. */
@@ -192,6 +194,26 @@ export class Disc {
     }
     disc.leadOut = lba;
     disc.extents.sort((a, b) => a.start - b.start);
+    return disc;
+  }
+
+  /** A disc from a CHD image's tracks. */
+  static fromChd(chd: ChdFile): Disc {
+    const disc = new Disc();
+    let lba = 0;
+    for (const chdTrack of chd.tracks) {
+      const inFile = chdTrack.pregapInFile ? chdTrack.pregap : 0;
+      const track: Track = { number: chdTrack.number, audio: chdTrack.audio, start: 0, length: chdTrack.frames - inFile };
+      if (chdTrack.pregap > 0 && !chdTrack.pregapInFile) {
+        disc.extents.push({ start: lba, end: lba + chdTrack.pregap, source: null, offset: 0, sectorSize: SECTOR_SIZE, track });
+        lba += chdTrack.pregap;
+      }
+      track.start = lba + inFile;
+      disc.tracks.push(track);
+      disc.extents.push({ start: lba, end: lba + chdTrack.frames, source: new ChdTrackSource(chd, chdTrack), offset: 0, sectorSize: chdTrack.dataSize, track });
+      lba += chdTrack.frames;
+    }
+    disc.leadOut = lba;
     return disc;
   }
 

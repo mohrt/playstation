@@ -1,5 +1,6 @@
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { ChdFile } from '../../src/disc/chd';
 import { Disc, type ByteSource } from '../../src/disc/disc';
 import { discMedia, type LoadedMedia } from '../../src/media';
 import { ROOT } from './machine';
@@ -27,6 +28,7 @@ export class FileSource implements ByteSource {
 
 /** A disc from a .cue (with its files next to it) or a single .bin/.iso. */
 export function openDisc(path: string): LoadedMedia {
+  if (path.toLowerCase().endsWith('.chd')) return discMedia(Disc.fromChd(new ChdFile(new FileSource(path))), basename(path));
   if (path.toLowerCase().endsWith('.cue')) {
     const cue = readFileSync(path, 'utf8');
     const files = new Map<string, ByteSource>();
@@ -45,7 +47,7 @@ export function romDiscs(): string[] {
   const dir = join(ROOT, 'roms');
   if (!existsSync(dir)) return [];
   const names = readdirSync(dir);
-  const cues = names.filter((name) => name.toLowerCase().endsWith('.cue'));
+  const cues = names.filter((name) => /\.(cue|chd)$/i.test(name));
   const covered = new Set(cues.flatMap((cue) => [...readFileSync(join(dir, cue), 'utf8').matchAll(/FILE\s+"([^"]+)"/gi)].map((m) => basename(m[1]).toLowerCase())));
   const images = names.filter((name) => /\.(bin|iso|img)$/i.test(name) && !covered.has(name.toLowerCase()));
   return [...cues, ...images].map((name) => join(dir, name));

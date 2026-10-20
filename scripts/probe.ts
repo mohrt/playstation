@@ -3,6 +3,7 @@
 // Presses hold a button for 8 frames from the given frame. Buttons are named as in PadButton (start, cross, up, l1...).
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { ChdFile } from '../src/disc/chd';
 import { Disc, type ByteSource } from '../src/disc/disc';
 import { isPsExe, parsePsExe } from '../src/exe';
 import { discMedia } from '../src/media';
@@ -63,7 +64,9 @@ if (isPsExe(head)) {
   machine.setExe(parsePsExe(new Uint8Array(readFileSync(path))));
 } else {
   let disc: Disc;
-  if (path.toLowerCase().endsWith('.cue')) {
+  if (path.toLowerCase().endsWith('.chd')) {
+    disc = Disc.fromChd(new ChdFile(new FileSource(path)));
+  } else if (path.toLowerCase().endsWith('.cue')) {
     const cue = readFileSync(path, 'utf8');
     const files = new Map<string, ByteSource>();
     for (const match of cue.matchAll(/FILE\s+"([^"]+)"/gi)) files.set(basename(match[1]), new FileSource(join(dirname(path), basename(match[1]))));
