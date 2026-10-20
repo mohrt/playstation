@@ -98,7 +98,8 @@ async function main(): Promise<void> {
     let rumble: Rumble[] = [];
     let pendingState: { resolve: (value: { bytes: Uint8Array; title: string }) => void; reject: (error: Error) => void } | null = null;
     let pendingLoad: { resolve: () => void; reject: (error: Error) => void } | null = null;
-    const focusScreen = () => canvas.focus();
+    // Keyboard focus goes back to the game without scrolling the page to it.
+    const focusScreen = () => canvas.focus({ preventScroll: true });
 
     const updateStatus = () => {
       const s = consoleStatus;

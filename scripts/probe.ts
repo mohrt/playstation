@@ -1,5 +1,6 @@
 // Runs a disc (or PS-EXE) headless and saves screenshots, for checking games without a browser.
 //   npm run probe -- game.cue [--frames 3600] [--shot 600] [--press 2400:start,2700:cross] [--bios file] [--out /tmp/probe] [--fast-boot]
+//   [--swap frame:disc2.cue] [--dualshock] [--tty] [--cd frame] [--sio frame] [--spu]
 // Presses hold a button for 8 frames from the given frame. Buttons are named as in PadButton (start, cross, up, l1...).
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -58,31 +59,33 @@ const presses = option('press', '')
 mkdirSync(out, { recursive: true });
 const name = basename(path).replace(/\.[^.]+$/, '').replace(/[^\w]+/g, '-');
 
+function openDisc(path: string): Disc {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.chd')) return Disc.fromChd(new ChdFile(new FileSource(path)));
+  if (lower.endsWith('.pbp')) return Disc.fromPbp(new PbpFile(new FileSource(path)).disc(0));
+  if (lower.endsWith('.cue')) {
+    const cue = readFileSync(path, 'utf8');
+    const files = new Map<string, ByteSource>();
+    for (const match of cue.matchAll(/FILE\s+"([^"]+)"/gi)) files.set(basename(match[1]), new FileSource(join(dirname(path), basename(match[1]))));
+    return Disc.fromCue(cue, files);
+  }
+  return Disc.fromImage(new FileSource(path));
+}
+
 const machine = new PlayStation();
 machine.loadBios(new Uint8Array(readFileSync(option('bios', join(process.cwd(), 'public', 'bios', 'openbios.bin')))));
 const head = new FileSource(path).read(0, 0x800);
 if (isPsExe(head)) {
   machine.setExe(parsePsExe(new Uint8Array(readFileSync(path))));
 } else {
-  let disc: Disc;
-  if (path.toLowerCase().endsWith('.chd')) {
-    disc = Disc.fromChd(new ChdFile(new FileSource(path)));
-  } else if (path.toLowerCase().endsWith('.pbp')) {
-    disc = Disc.fromPbp(new PbpFile(new FileSource(path)).disc(Number(process.env.PBP_DISC ?? 0)));
-  } else if (path.toLowerCase().endsWith('.cue')) {
-    const cue = readFileSync(path, 'utf8');
-    const files = new Map<string, ByteSource>();
-    for (const match of cue.matchAll(/FILE\s+"([^"]+)"/gi)) files.set(basename(match[1]), new FileSource(join(dirname(path), basename(match[1]))));
-    disc = Disc.fromCue(cue, files);
-  } else {
-    disc = Disc.fromImage(new FileSource(path));
-  }
-  const media = discMedia(disc, basename(path));
+  const media = discMedia(openDisc(path), basename(path));
   if (media.kind === 'disc') {
     console.log(`${media.title}: ${media.details}`);
-    machine.insertDisc(disc, media.info.region);
+    machine.insertDisc(media.disc, media.info.region);
   }
 }
+// --swap frame:other.cue changes discs at that frame, as Swap disc... does.
+const [swapAt, swapPath] = option('swap', '').split(/:(.*)/s);
 let tty = '';
 // --tty prints the program's output as it comes, with the frame it came in.
 let ttyLine = '';
@@ -170,6 +173,11 @@ for (let frame = 1; frame <= frames; frame++) {
   for (const press of presses) if (frame >= press.frame && frame < press.frame + 8) buttons |= press.button;
   machine.sio.pads[0].state = { ...idlePad(), buttons };
   machine.runFrame();
+  if (swapPath && frame === Number(swapAt)) {
+    const media = discMedia(openDisc(swapPath), basename(swapPath));
+    if (media.kind === 'disc') machine.cdrom.swapDisc(media.disc, media.info.region);
+    console.log(`f${frame}: swapped in ${basename(swapPath)}`);
+  }
   const { smallMotor, largeMotor } = machine.sio.pads[0];
   if (smallMotor || largeMotor) {
     rumbleFrames++;
