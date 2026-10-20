@@ -97,7 +97,8 @@ export class Dma {
 
   private writeDicr(value: number): void {
     const acknowledged = value & 0x7f000000;
-    this.dicr = ((this.dicr & 0x7f000000) & ~acknowledged) | (value & 0x00ff803f);
+    // The master flag (bit 31) is kept, so the interrupt only fires when it newly goes up.
+    this.dicr = (this.dicr & 0xff000000 & ~acknowledged) | (value & 0x00ff803f);
     this.updateMasterFlag();
   }
 

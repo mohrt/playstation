@@ -32,7 +32,7 @@ No commercial games are included in this repository. Use images of discs you own
 
 ## BIOS
 
-OpenBIOS (MIT licensed) boots many games, and does almost all the retail BIOS does except show Sony's intro. Some games need the real BIOS: if one doesn't start, **Add BIOS...** (or drop a 512K file with "bios" or "scph" in its name) keeps your own console's BIOS in the browser, and **Use my BIOS** switches between it and OpenBIOS. **Forget** removes it. Known dumps are named by console model (SCPH-1001 and so on).
+OpenBIOS (MIT licensed) boots many games, and does almost all the retail BIOS does except show Sony's intro. Some games need the real BIOS: if one doesn't start, **Add BIOS...** (or drop a 512K file with "bios" or "scph" in its name) keeps your own console's BIOS in the browser, and **Use my BIOS** switches between it and OpenBIOS. **Forget** removes it. Known dumps are named by console model (SCPH-1001 and so on), and a known damaged dump of the SCPH-5502 is refused (it crashes before the Sony logo). Put BIOS images in `roms/bios/` (never committed) and `npm test` boots each to its menu.
 
 ## Memory cards
 
@@ -40,7 +40,7 @@ Two memory cards are always in, and belong to the console like real ones: every 
 
 ## Compatibility
 
-Tested so far: Tetrade (homebrew, booting from its disc), Crash Bandicoot: Warped (NTSC-U: intro, title, cutscenes) and Tekken (PAL: the Galaga loading game, intro video with XA audio, and fights with CD audio music). Both commercial games run at full speed in Chrome, with headroom to spare (about twice real time on a laptop).
+Tested so far: Tetrade (homebrew, booting from its disc), Crash Bandicoot: Warped (NTSC-U: intro, title, cutscenes) and Tekken (PAL: the Galaga loading game, intro video with XA audio, and fights with CD audio music). Both commercial games run at full speed in Chrome, with headroom to spare (about twice real time on a laptop). Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
 
 What isn't there yet: CHD and PBP images, swapping discs mid-game for multi-disc games (putting a disc in restarts the console), the multitap, light guns and mice, and the PocketStation. The SPU interpolates with a cubic curve rather than the hardware's Gaussian table, and the CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
 

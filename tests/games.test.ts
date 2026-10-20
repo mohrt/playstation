@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Disc, discInfo, MemorySource } from '../src/disc/disc';
-import type { PlayStation } from '../src/playstation';
+import { PlayStation } from '../src/playstation';
+import { checkBios } from '../src/storage/bios-store';
 import { openDisc, romDiscs } from './helpers/discs';
 import { bootedMachine, haveBios, ROOT } from './helpers/machine';
 
@@ -25,6 +26,34 @@ function framesToPicture(machine: PlayStation, maxFrames: number): number {
   }
   return Infinity;
 }
+
+const BIOS_DIR = join(ROOT, 'roms', 'bios');
+const usableBios = (name: string) => {
+  if (statSync(join(BIOS_DIR, name)).size !== 0x80000) return false;
+  try {
+    checkBios(new Uint8Array(readFileSync(join(BIOS_DIR, name))));
+    return true;
+  } catch {
+    return false;
+  }
+};
+const userBioses = existsSync(BIOS_DIR) ? readdirSync(BIOS_DIR).filter(usableBios) : [];
+
+// Your own BIOS images in roms/bios/ (never committed) are booted to their menu with no disc in.
+describe('real BIOSes', () => {
+  it.each(userBioses)('%s gets past the Sony logo to its menu', (name) => {
+    const machine = new PlayStation();
+    machine.loadBios(new Uint8Array(readFileSync(join(BIOS_DIR, name))));
+    machine.powerOn();
+    for (let frame = 0; frame < 400; frame++) machine.runFrame();
+    const logo = machine.gpu.framebuffer.slice();
+    for (let frame = 400; frame < 1500; frame++) machine.runFrame();
+    let changed = 0;
+    for (let i = 0; i < logo.length; i++) if (logo[i] !== machine.gpu.framebuffer[i]) changed++;
+    expect(changed / logo.length).toBeGreaterThan(0.3);
+    expect(lit(machine)).toBeGreaterThan(0.2);
+  });
+});
 
 describe.skipIf(!haveBios)('games boot through OpenBIOS', () => {
   it.each(manifest.map((game) => [game.title, game.file]))('%s (free game) reaches its title screen', (_title, file) => {
