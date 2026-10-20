@@ -17,7 +17,8 @@ export type ToWorker =
   | { type: 'memory-card'; slot: number; data: Uint8Array }
   | { type: 'save-state' }
   | { type: 'load-state'; bytes: Uint8Array }
-  | { type: 'sound'; enabled: boolean };
+  | { type: 'sound'; enabled: boolean }
+  | { type: 'fast-boot'; enabled: boolean };
 
 /** The console's state, for the page's status line. */
 export interface ConsoleStatus {

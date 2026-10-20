@@ -63,6 +63,25 @@ describe.skipIf(!haveBios || manifest.length === 0)('free games boot through Ope
     machine.powerOn();
     expect(framesToPicture(machine, 1500)).toBeLessThan(1500);
   });
+
+  it('skip the BIOS intro with fast boot', () => {
+    const disc = Disc.fromImage(new MemorySource(new Uint8Array(readFileSync(join(GAMES_DIR, manifest[0].file)))));
+    const framesToBootstrap = (fastBoot: boolean) => {
+      const machine = bootedMachine();
+      let tty = '';
+      machine.onTty = (char) => (tty += String.fromCharCode(char));
+      machine.fastBoot = fastBoot;
+      machine.insertDisc(disc, discInfo(disc).region);
+      machine.powerOn();
+      for (let frame = 1; frame <= 600; frame++) {
+        machine.runFrame();
+        if (tty.includes('BOOTSTRAP LOADER')) return frame;
+      }
+      return Infinity;
+    };
+    expect(framesToBootstrap(true)).toBeLessThan(120);
+    expect(framesToBootstrap(false)).toBeGreaterThan(240);
+  });
 });
 
 // Your own discs in roms/ (never committed) are booted too.

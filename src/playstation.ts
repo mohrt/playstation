@@ -32,6 +32,8 @@ export class PlayStation {
   hasBios = false;
   /** A program to start instead of the BIOS shell. */
   private exe: PsExe | null = null;
+  /** Skips the BIOS shell (its logos and menus) when there's a disc to boot, from the next power-on. */
+  fastBoot = false;
   /** Characters the running program printed through the BIOS (or the expansion port). */
   onTty: (char: number) => void = () => {};
 
@@ -67,7 +69,7 @@ export class PlayStation {
     this.cpu.onBiosCall = (table, fn) => {
       if ((table === 0xa0 && fn === 0x3c) || (table === 0xb0 && fn === 0x3d)) this.onTty(this.cpu.r[4] & 0xff);
     };
-    this.cpu.onHook = () => this.startExe();
+    this.cpu.onHook = () => this.enterShell();
   }
 
   get clockHz(): number {
@@ -92,7 +94,7 @@ export class PlayStation {
     this.spu.reset();
     this.mdec.reset();
     this.cpu.reset();
-    this.cpu.hookPc = this.exe ? SHELL_ENTRY : -1;
+    this.cpu.hookPc = this.exe || this.fastBoot ? SHELL_ENTRY : -1;
   }
 
   insertDisc(disc: Disc | null, region: DiscRegion = 'ntsc-u'): void {
@@ -105,10 +107,17 @@ export class PlayStation {
     this.cpu.hookPc = program ? SHELL_ENTRY : -1;
   }
 
-  private startExe(): void {
-    const program = this.exe;
+  private enterShell(): void {
     this.cpu.hookPc = -1;
-    if (!program) return;
+    if (this.exe) this.startExe(this.exe);
+    else if (this.fastBoot && this.cdrom.disc) {
+      // What the shell leaves behind: the display on. Returning makes the BIOS boot the disc.
+      this.gpu.gp1(0x03000000);
+      this.cpu.jump(this.cpu.r[31]);
+    }
+  }
+
+  private startExe(program: PsExe): void {
     const ram = this.bus.ram8;
     const load = program.loadAddress & 0x1fffff;
     ram.set(program.text.subarray(0, Math.max(0, Math.min(program.text.length, ram.length - load))), load);

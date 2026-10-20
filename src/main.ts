@@ -19,7 +19,7 @@ import { attachToolbar } from './ui/toolbar';
 import { OnScreenPad } from './ui/touch-pad';
 
 /** Form fields whose values are remembered between visits. */
-const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'show-pad', 'pad-player', 'sound', 'volume'];
+const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot'];
 const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
 const PLAYERS = 2;
 
@@ -348,6 +348,11 @@ async function main(): Promise<void> {
     sound.addEventListener('change', applySound);
     volume.addEventListener('input', applySound);
     applySound();
+
+    const fastBoot = requireElement<HTMLInputElement>('input[name="fast-boot"]');
+    const applyFastBoot = () => post({ type: 'fast-boot', enabled: fastBoot.checked });
+    fastBoot.addEventListener('change', applyFastBoot);
+    applyFastBoot();
     if (!audio) {
       sound.disabled = volume.disabled = true;
       soundHint.textContent = 'Sound is not supported in this browser';

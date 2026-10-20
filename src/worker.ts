@@ -119,6 +119,9 @@ async function handle(message: ToWorker): Promise<void> {
     case 'sound':
       emu.soundEnabled = message.enabled;
       return;
+    case 'fast-boot':
+      emu.machine.fastBoot = message.enabled;
+      return;
     case 'save-state':
       try {
         const bytes = await emu.saveState();

@@ -1,5 +1,5 @@
 // Runs a disc (or PS-EXE) headless and saves screenshots, for checking games without a browser.
-//   npm run probe -- game.cue [--frames 3600] [--shot 600] [--press 2400:start,2700:cross] [--bios file] [--out /tmp/probe]
+//   npm run probe -- game.cue [--frames 3600] [--shot 600] [--press 2400:start,2700:cross] [--bios file] [--out /tmp/probe] [--fast-boot]
 // Presses hold a button for 8 frames from the given frame. Buttons are named as in PadButton (start, cross, up, l1...).
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -84,7 +84,18 @@ if (isPsExe(head)) {
   }
 }
 let tty = '';
-machine.onTty = (char) => (tty += String.fromCharCode(char));
+// --tty prints the program's output as it comes, with the frame it came in.
+let ttyLine = '';
+machine.onTty = (char) => {
+  tty += String.fromCharCode(char);
+  if (!args.includes('--tty')) return;
+  if (char !== 10) ttyLine += String.fromCharCode(char);
+  else if (ttyLine.trim()) {
+    console.log(`f${machine.gpu.frameCount} tty: ${ttyLine}`);
+    ttyLine = '';
+  }
+};
+machine.fastBoot = args.includes('--fast-boot');
 machine.powerOn();
 // --resume state.json.gz continues from a state saved with --save-at frame:file (frames then count from it).
 const resume = option('resume', '');
@@ -133,7 +144,18 @@ if (sioFrom) {
     write(offset, value);
   };
 }
+// --cd <frame> logs the CD-ROM commands sent from that frame on.
+const cdFrom = Number(option('cd', '0'));
+if (cdFrom) {
+  const cdrom = machine.cdrom as unknown as { startCommand(command: number): void; params: number[] };
+  const startCommand = cdrom.startCommand.bind(cdrom);
+  cdrom.startCommand = (command: number) => {
+    if (machine.gpu.frameCount >= cdFrom && sioLog.length < 400) sioLog.push(`f${machine.gpu.frameCount} cd ${command.toString(16)}(${cdrom.params.map((p) => p.toString(16)).join(',')})`);
+    startCommand(command);
+  };
+}
 let energy = 0;
+let sum = 0;
 let samples = 0;
 const start = performance.now();
 for (let frame = 1; frame <= frames; frame++) {
@@ -147,7 +169,10 @@ for (let frame = 1; frame <= frames; frame++) {
   }
   machine.spu.sync();
   const sound = machine.spu.takeSamples();
-  for (let i = 0; i < sound.length; i++) energy += sound[i] * sound[i];
+  for (let i = 0; i < sound.length; i++) {
+    energy += sound[i] * sound[i];
+    sum += sound[i];
+  }
   samples += sound.length;
   if (frame % shot === 0) {
     const { frameWidth: w, frameHeight: h, framebuffer } = machine.gpu;
@@ -161,15 +186,16 @@ for (let frame = 1; frame <= frames; frame++) {
     writeFileSync(file, encodePng(w, h, rgb));
     const seconds = (performance.now() - start) / 1000;
     const rms = Math.sqrt(energy / Math.max(1, samples));
-    energy = samples = 0;
-    console.log(`frame ${frame}: ${w}x${h} ${machine.gpu.standard}, ${(frame / seconds).toFixed(0)} fps, sound ${rms.toFixed(3)}, pc ${(machine.cpu.pc >>> 0).toString(16)} → ${file}`);
+    const dc = sum / Math.max(1, samples);
+    energy = sum = samples = 0;
+    console.log(`frame ${frame}: ${w}x${h} ${machine.gpu.standard}, ${(frame / seconds).toFixed(0)} fps, sound ${rms.toFixed(3)} (dc ${dc.toFixed(3)}), pc ${(machine.cpu.pc >>> 0).toString(16)} → ${file}`);
   }
 }
 if (args.includes('--spu')) {
   const spu = machine.spu;
   const voices = spu.voices.map((v, i) => `${i}:${v.phase}/${v.adsrLevel.toString(16)}/${v.pitch.toString(16)}@${v.currentAddress.toString(16)} vol ${v.volumeLeft.level},${v.volumeRight.level}`);
   console.log(`SPU control ${spu.control.toString(16)} main ${spu.mainLeft.level},${spu.mainRight.level} (regs ${spu.mainLeft.register.toString(16)},${spu.mainRight.register.toString(16)}) reverb on ${spu.reverbOn.toString(16)} out ${spu.reverbOutLeft},${spu.reverbOutRight} cd ${spu.cdVolumeLeft},${spu.cdVolumeRight}`);
-  console.log(voices.slice(0, 4).join('\n'));
+  console.log(voices.filter((_, i) => i < 4 || spu.voices[i].adsrLevel !== 0).join('\n'));
   console.log([...counts].map(([k, n]) => `${k}: ${n}`).join(', '));
   const timers = machine.timers as unknown as { event: { time: number }; lastSync: number; counters: { pending: number; irqDone: boolean; waiting: boolean }[] };
   const gpuPrivate = machine.gpu as unknown as { lineEvent: { time: number }; lineFraction: number };
@@ -177,6 +203,6 @@ if (args.includes('--spu')) {
   console.log(`timer event at ${timers.event.time}, now ${machine.sched.now}, lastSync ${timers.lastSync}, t2 pending ${timers.counters[2].pending} irqDone ${timers.counters[2].irqDone} waiting ${timers.counters[2].waiting}`);
   console.log(`irq mask ${machine.irq.mask.toString(16)} stat ${machine.irq.stat.toString(16)}; timers ${machine.timers.counters.map((t) => `count ${t.count.toString(16)} mode ${t.mode.toString(16)} target ${t.target.toString(16)}`).join(' | ')}`);
 }
-if (sioLog.length) console.log(`SIO:\n${sioLog.join(' ')}`);
+if (sioLog.length) console.log(`Log:\n${sioLog.join(' ')}`);
 const lines = tty.trim().split('\n');
 if (lines.length) console.log(`TTY (last lines):\n${lines.slice(-8).join('\n')}`);

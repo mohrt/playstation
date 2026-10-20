@@ -32,7 +32,7 @@ No commercial games are included in this repository. Use images of discs you own
 
 ## BIOS
 
-OpenBIOS (MIT licensed) boots many games, and does almost all the retail BIOS does except show Sony's intro. Some games need the real BIOS: if one doesn't start, **Add BIOS...** (or drop a 512K file with "bios" or "scph" in its name) keeps your own console's BIOS in the browser, and **Use my BIOS** switches between it and OpenBIOS. **Forget** removes it. Known dumps are named by console model (SCPH-1001 and so on), and a known damaged dump of the SCPH-5502 is refused (it crashes before the Sony logo). Put BIOS images in `roms/bios/` (never committed) and `npm test` boots each to its menu.
+OpenBIOS (MIT licensed) boots many games, and does almost all the retail BIOS does except show Sony's intro. Some games need the real BIOS: if one doesn't start, **Add BIOS...** (or drop a 512K file with "bios" or "scph" in its name) keeps your own console's BIOS in the browser, and **Use my BIOS** switches between it and OpenBIOS. **Forget** removes it. **Skip BIOS intro** starts discs straight away, without the logos (about 10 seconds sooner with Sony's BIOS, 5 with OpenBIOS); it takes effect the next time the console starts. Known dumps are named by console model (SCPH-1001 and so on), and a known damaged dump of the SCPH-5502 is refused (it crashes before the Sony logo). Put BIOS images in `roms/bios/` (never committed) and `npm test` boots each to its menu.
 
 ## Memory cards
 
