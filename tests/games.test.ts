@@ -40,7 +40,7 @@ const usableBios = (name: string) => {
 const userBioses = existsSync(BIOS_DIR) ? readdirSync(BIOS_DIR).filter(usableBios) : [];
 
 // Your own BIOS images in roms/bios/ (never committed) are booted to their menu with no disc in.
-describe('real BIOSes', () => {
+describe.skipIf(userBioses.length === 0)('real BIOSes', () => {
   it.each(userBioses)('%s gets past the Sony logo to its menu', (name) => {
     const machine = new PlayStation();
     machine.loadBios(new Uint8Array(readFileSync(join(BIOS_DIR, name))));
@@ -55,17 +55,20 @@ describe('real BIOSes', () => {
   });
 });
 
-describe.skipIf(!haveBios)('games boot through OpenBIOS', () => {
-  it.each(manifest.map((game) => [game.title, game.file]))('%s (free game) reaches its title screen', (_title, file) => {
+describe.skipIf(!haveBios || manifest.length === 0)('free games boot through OpenBIOS', () => {
+  it.each(manifest.map((game) => [game.title, game.file]))('%s reaches its title screen', (_title, file) => {
     const disc = Disc.fromImage(new MemorySource(new Uint8Array(readFileSync(join(GAMES_DIR, file)))));
     const machine = bootedMachine();
     machine.insertDisc(disc, discInfo(disc).region);
     machine.powerOn();
     expect(framesToPicture(machine, 1500)).toBeLessThan(1500);
   });
+});
 
-  // Your own discs in roms/ (never committed) are booted too.
-  it.each(romDiscs().map((path) => [basename(path), path]))('%s (from roms/) draws its first pictures', { timeout: 120_000 }, (_name, path) => {
+// Your own discs in roms/ (never committed) are booted too.
+const discs = romDiscs();
+describe.skipIf(!haveBios || discs.length === 0)('your discs boot through OpenBIOS', () => {
+  it.each(discs.map((path) => [basename(path), path]))('%s draws its first pictures', { timeout: 120_000 }, (_name, path) => {
     const media = openDisc(path);
     if (media.kind !== 'disc') throw new Error('not a disc');
     const machine = bootedMachine();
