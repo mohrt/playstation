@@ -137,10 +137,10 @@ export class PlayStation {
     }
   }
 
-  /** Runs until the next vertical blank (or a frame's worth of time if video is off). */
+  /** Runs until the next vertical blank (or two PAL frames' worth of time if there's none). */
   runFrame(): void {
     const frame = this.gpu.frameCount;
-    const end = this.sched.now + Math.ceil(CPU_HZ / 50);
+    const end = this.sched.now + Math.ceil(CPU_HZ / 25);
     while (this.gpu.frameCount === frame && this.sched.now < end) {
       this.sched.beginSlice(end);
       this.cpu.run();

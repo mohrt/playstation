@@ -40,7 +40,20 @@ Two memory cards are always in, and belong to the console like real ones: every 
 
 ## Compatibility
 
-Tested so far: Tetrade (homebrew, booting from its disc), Crash Bandicoot: Warped (NTSC-U: intro, title, cutscenes) and Tekken (PAL: the Galaga loading game, intro video with XA audio, and fights with CD audio music). Both commercial games run at full speed in Chrome, with headroom to spare (about twice real time on a laptop). Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
+Tested so far, booting through OpenBIOS:
+
+- Tetrade (homebrew, from its disc).
+- Crash Bandicoot: Warped (NTSC-U): intro, title, cutscenes.
+- Tekken (PAL): the Galaga loading game, intro video with XA audio, fights with CD audio music.
+- Final Fantasy VII (PAL, German): opening credits video, title menu, memory card screens, New Game through the opening into the first Midgar scene with music.
+- Metal Gear Solid (PAL): to the title screen with music.
+- Ridge Racer (PAL, CD audio tracks): to the start of a race.
+- Resident Evil (PAL): intro video.
+- Castlevania: Symphony of the Night (PAL): intro video with audio.
+- Gran Turismo (PAL): 640×480 title menu and car menus.
+- Spyro the Dragon (PAL): intro.
+
+They run at full speed in Chrome with headroom to spare: in Node the heaviest (Final Fantasy VII's field scenes, Metal Gear Solid, Gran Turismo) emulate 105-115 frames a second, twice what PAL needs. Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
 
 What isn't there yet: CHD and PBP images, swapping discs mid-game for multi-disc games (putting a disc in restarts the console), the multitap, light guns and mice, and the PocketStation. The SPU interpolates with a cubic curve rather than the hardware's Gaussian table, and the CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
 

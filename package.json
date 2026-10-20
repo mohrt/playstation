@@ -12,6 +12,7 @@
     "fetch:bios": "node scripts/fetch-bios.mjs",
     "fetch:tests": "node scripts/fetch-tests.mjs",
     "fetch:games": "node scripts/fetch-games.mjs",
+    "probe": "vite build --ssr scripts/probe.ts --outDir node_modules/.probe --emptyOutDir --logLevel warn && node node_modules/.probe/probe.js",
     "bench": "vite build --ssr scripts/bench.ts --outDir node_modules/.bench --emptyOutDir --logLevel warn && node node_modules/.bench/bench.js"
   },
   "devDependencies": {
