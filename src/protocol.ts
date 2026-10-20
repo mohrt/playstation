@@ -20,7 +20,9 @@ export type ToWorker =
   | { type: 'save-state' }
   | { type: 'load-state'; bytes: Uint8Array }
   | { type: 'sound'; enabled: boolean }
-  | { type: 'fast-boot'; enabled: boolean };
+  | { type: 'fast-boot'; enabled: boolean }
+  /** A Multitap in port 1. */
+  | { type: 'multitap'; plugged: boolean };
 
 /** The console's state, for the page's status line. */
 export interface ConsoleStatus {
@@ -30,6 +32,7 @@ export interface ConsoleStatus {
   details: string;
   bios: string;
   pads: { type: PadType; analog: boolean }[];
+  multitap: boolean;
 }
 
 /** A DualShock's motors, 0-1: the large (strong) one and the small (weak) one. */

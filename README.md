@@ -19,6 +19,7 @@ The toolbar has pause, the console's Reset button, power cycle and full screen, 
 - **Digital pad** or **DualShock**, for each port. A DualShock starts in digital mode, as the real one does; games that use the sticks switch it to analog themselves, and **Analog** (player 1's Analog button) switches it by hand for the others. Games that vibrate the DualShock (Crash Bandicoot: Warped, Metal Gear Solid and so on) rumble your gamepad, in browsers that support it (Chrome and Edge).
 - **GunCon (mouse)**: Namco's light gun, for Time Crisis, Point Blank, Die Hard Trilogy 2 and the like. It aims wherever the mouse (or a finger) is on the screen: the left button is the trigger, right is A and middle is B (Enter, X and C on the keyboard too). Shift-click shoots off the screen, which is how most of these games reload. Games calibrate the gun themselves, by asking you to shoot a target.
 - **Mouse**: the PlayStation Mouse, for games such as Discworld, Command & Conquer and Lemmings. Click the screen and it captures the pointer; Esc lets it go.
+- **Multitap**: Sony's adaptor for four controllers in port 1, for Crash Team Racing, Micro Machines V3, Bomberman World, FIFA and the like. Players 1-4 are on it and player 5 is on port 2; gamepads go to players in the order they were plugged in. Games that don't look for a Multitap see player 1's controller as usual. (A few games, such as Bomberman Party Edition, want it in port 2, which isn't offered yet.)
 
 Save states keep the whole console in the browser, except the disc: a state remembers which disc it was made with (by its serial) and asks for that disc to be put in before it is loaded. States of programs dropped as an `.exe` carry the program. They can be exported and imported as `.psxstate` files.
 
@@ -57,7 +58,7 @@ Tested so far, booting through OpenBIOS:
 
 They run at full speed in Chrome with headroom to spare: in Node the heaviest (Final Fantasy VII's field scenes, Metal Gear Solid, Gran Turismo) emulate 105-115 frames a second, twice what PAL needs. Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
 
-What isn't there yet: the multitap, light guns and mice, and the PocketStation. The CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
+What isn't there yet: Konami's Justifier light gun, a Multitap in port 2 or memory cards on a Multitap, and the PocketStation. The CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
 
 ## Accuracy
 

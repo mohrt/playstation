@@ -122,6 +122,10 @@ async function handle(message: ToWorker): Promise<void> {
     case 'mouse-motion':
       emu.machine.sio.pads[message.port]?.move(message.dx, message.dy);
       return;
+    case 'multitap':
+      emu.setMultitap(message.plugged);
+      sendStatus();
+      return;
     case 'fast-boot':
       emu.machine.fastBoot = message.enabled;
       return;

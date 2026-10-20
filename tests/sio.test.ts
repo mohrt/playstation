@@ -110,6 +110,36 @@ describe('controllers and memory cards', () => {
     ]);
   });
 
+  it('reads four pads through a Multitap, all at once after a request or one slot at a time', () => {
+    const m = machine();
+    const tap = m.sio.taps[0];
+    tap.plugged = true;
+    const [a, b, c, d] = tap.slots;
+    a.state = { ...idlePad(), buttons: PadButton.Start };
+    b.state = { ...idlePad(), buttons: PadButton.Cross };
+    d.type = 'digital';
+    d.state = { ...idlePad(), buttons: PadButton.Up };
+    const read = (tapByte: number) => exchange(m, 0, [0x01, 0x42, tapByte, ...new Array<number>(32).fill(0)]).replies.slice(1);
+    // Without a request it's slot A alone, as if no Multitap were there (and asking doesn't change this read).
+    expect(read(0x01).slice(0, 4)).toEqual([0x41, 0x5a, 0xf7, 0xff]);
+    const all = read(0x00);
+    expect(all.slice(0, 2)).toEqual([0x80, 0x5a]);
+    expect(all.slice(2, 10)).toEqual([0x41, 0x5a, 0xf7, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    expect(all.slice(10, 14)).toEqual([0x41, 0x5a, 0xff, 0xbf]);
+    expect(all.slice(18, 20)).toEqual([0x41, 0x5a]); // slot C: an idle pad
+    expect(all.slice(26, 30)).toEqual([0x41, 0x5a, 0xef, 0xff]);
+    expect(read(0x00).slice(0, 2)).toEqual([0x41, 0x5a]); // back to slot A
+    // Requesting every time alternates the long reply with a short garbage one.
+    read(0x01);
+    expect(read(0x01).length).toBeGreaterThan(30);
+    const { replies, acks } = exchange(m, 0, [0x01, 0x42, 0x01, 0, 0, 0]);
+    expect(replies.slice(1, 4)).toEqual([0x80, 0x5a, 0x41]);
+    expect(acks.slice(0, 4)).toEqual([true, true, true, false]);
+    // Addressing 02h-04h talks to slots B-D directly.
+    expect(exchange(m, 0, [0x02, 0x42, 0, 0, 0]).replies.slice(1)).toEqual([0x41, 0x5a, 0xff, 0xbf]);
+    expect(m.sio.playerPads).toEqual([a, b, c, d, m.sio.pads[1]]);
+  });
+
   it('replays rumble on a gamepad while the motors run, and stops it after', () => {
     const effects: string[] = [];
     const gamepad = {

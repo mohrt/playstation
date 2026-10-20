@@ -125,6 +125,11 @@ export class Pad {
     return bytes;
   }
 
+  /** The pad's whole reply to `command` (its ID first), as the Multitap collects it from each slot. */
+  poll(command: number): number[] {
+    return this.respond(command);
+  }
+
   /** Trigger, A and B, then where the gun sees the beam: X in 8 MHz ticks into the line, Y in lines. */
   private gunReport(): number[] {
     const buttons = ~(this.state.buttons & (GunButton.A | GunButton.Trigger | GunButton.B)) & 0xffff;

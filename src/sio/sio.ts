@@ -1,6 +1,7 @@
 import { Irq, type Interrupts } from '../irq';
 import { TimedEvent, type Scheduler } from '../scheduler';
 import { MemoryCard } from './memory-card';
+import { Multitap } from './multitap';
 import { Pad } from './pad';
 
 const CTRL_TX_ENABLE = 1 << 0;
@@ -28,8 +29,10 @@ const ACK_LENGTH = 100;
 export class Sio {
   readonly pads = [new Pad(), new Pad()];
   readonly cards = [new MemoryCard(), new MemoryCard()];
+  /** A Multitap in each port (when `plugged`), in front of that port's pad. */
+  readonly taps = this.pads.map((pad) => new Multitap(pad));
   /** Which device in the selected port is answering this transfer. */
-  private device: 'none' | 'pad' | 'card' | 'unknown' = 'none';
+  private device: 'none' | 'pad' | 'tap' | 'card' | 'unknown' = 'none';
   mode = 0;
   ctrl = 0;
   baud = 0;
@@ -57,7 +60,13 @@ export class Sio {
     this.mode = this.ctrl = this.baud = 0;
     this.resetState();
     for (const pad of this.pads) pad.reset();
+    for (const tap of this.taps) tap.reset();
     for (const card of this.cards) card.reset();
+  }
+
+  /** Every pad in player order: each port's pad, followed by slots B-D of its Multitap if one is plugged in. */
+  get playerPads(): Pad[] {
+    return this.taps.flatMap((tap, port) => (tap.plugged ? tap.slots : [this.pads[port]]));
   }
 
   private resetState(): void {
@@ -143,6 +152,7 @@ export class Sio {
 
   private deselectAll(): void {
     for (const pad of this.pads) pad.deselect();
+    for (const tap of this.taps) tap.deselect();
     for (const card of this.cards) card.deselect();
   }
 
@@ -152,15 +162,24 @@ export class Sio {
       this.pendingAck = false;
     } else {
       const port = this.port;
-      if (this.device === 'none') this.device = value === 0x01 ? 'pad' : value === 0x81 ? 'card' : 'unknown';
+      if (this.device === 'none') this.device = this.deviceFor(value);
       let result = { reply: 0xff, ack: false };
       if (this.device === 'pad') result = this.pads[port].transfer(value);
+      else if (this.device === 'tap') result = this.taps[port].transfer(value);
       else if (this.device === 'card') result = this.cards[port].transfer(value);
       this.pendingReply = result.reply;
       this.pendingAck = result.ack;
     }
     this.transferring = true;
     this.sched.schedule(this.transferEvent, this.byteCycles());
+  }
+
+  /** Who answers a transfer starting with `address`: 01h is the pad and 81h the memory card (01h-04h are the Multitap's pads). */
+  private deviceFor(address: number): typeof this.device {
+    if (this.taps[this.port].plugged && address >= 0x01 && address <= 0x04) return 'tap';
+    if (address === 0x01) return 'pad';
+    if (address === 0x81) return 'card';
+    return 'unknown';
   }
 
   private transferDone(): void {

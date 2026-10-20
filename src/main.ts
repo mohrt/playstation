@@ -20,9 +20,10 @@ import { attachToolbar } from './ui/toolbar';
 import { OnScreenPad } from './ui/touch-pad';
 
 /** Form fields whose values are remembered between visits. */
-const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot'];
+const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'multitap', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot'];
 const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
-const PLAYERS = 2;
+/** Two ports, or five players with a Multitap in port 1 (four on it, the fifth on port 2). */
+const MAX_PLAYERS = 5;
 const STILL: Rumble = { strong: 0, weak: 0 };
 
 function requireElement<T extends HTMLElement>(selector: string): T {
@@ -118,7 +119,7 @@ async function main(): Promise<void> {
       const s = consoleStatus;
       if (!s) return;
       const parts = [s.title ?? 'No disc', s.bios === 'OpenBIOS' ? 'OpenBIOS' : 'your BIOS'];
-      s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}`));
+      s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}${i === 0 && s.multitap ? ' on a Multitap' : ''}`));
       if (speed < 0.95) parts.push(`running at ${Math.round(speed * 100)}% speed`);
       status.textContent = `${parts.join(' · ')} · ${controlsHint(s.pads[0]?.type ?? 'digital')}`;
       screenFrame.classList.toggle('empty', s.title === null);
@@ -334,9 +335,20 @@ async function main(): Promise<void> {
     });
 
     // --- Inputs -------------------------------------------------------------------------
-    const controllers = [new ControllerInput(), new ControllerInput()];
-    pointer = new PointerInput(canvas, controllers);
+    const controllers = Array.from({ length: MAX_PLAYERS }, () => new ControllerInput());
+    const multitap = requireElement<HTMLInputElement>('input[name="multitap"]');
+    const players = () => (multitap.checked ? MAX_PLAYERS : 2);
+    pointer = new PointerInput(canvas, (port) => controllers[port === 0 ? 0 : players() - 1]);
     pointer.setPadTypes(toolbar.padTypes);
+    const applyMultitap = () => {
+      post({ type: 'multitap', plugged: multitap.checked });
+      pointer.setPadTypes(toolbar.padTypes);
+    };
+    multitap.addEventListener('change', () => {
+      applyMultitap();
+      focusScreen();
+    });
+    applyMultitap();
     new KeyboardInput(controllers[0], {
       onPause: () => toolbar.setPaused(!toolbar.paused),
       onFastForward: (held) => {
@@ -390,7 +402,7 @@ async function main(): Promise<void> {
     let lastPads = '';
     const pollInputs = (now: number) => {
       const pads = gamepads.connected();
-      for (let player = 0; player < PLAYERS; player++) {
+      for (let player = 0; player < players(); player++) {
         const gamepad = pads[player];
         if (gamepad) {
           controllers[player].set('gamepad', readGamepad(gamepad));
@@ -399,14 +411,14 @@ async function main(): Promise<void> {
       }
       const motion = pointer.takeMotion();
       if (motion) post({ type: 'mouse-motion', ...motion });
-      const states: PadState[] = controllers.map((controller) => controller.state);
+      const states: PadState[] = controllers.slice(0, players()).map((controller) => controller.state);
       const key = JSON.stringify(states);
       if (key !== lastPads) {
         lastPads = key;
         post({ type: 'pads', pads: states });
       }
       const names = pads
-        .slice(0, PLAYERS)
+        .slice(0, players())
         .map((gamepad, player) => `Player ${player + 1}: ${padName(gamepad)}`)
         .join(' · ');
       if (names !== lastPadNames) {

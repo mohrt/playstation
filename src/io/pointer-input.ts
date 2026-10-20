@@ -11,6 +11,7 @@ const SOURCE = 'pointer';
  */
 export class PointerInput {
   private port = -1;
+  private controller: ControllerInput | null = null;
   private type: PadType = 'digital';
   private aim: { x: number; y: number } | null = null;
   private buttons = 0;
@@ -20,7 +21,8 @@ export class PointerInput {
 
   constructor(
     private readonly screen: HTMLElement,
-    private readonly controllers: ControllerInput[],
+    /** The controller of the player whose device is in a port. */
+    private readonly controllerFor: (port: number) => ControllerInput,
   ) {
     screen.addEventListener('pointermove', (event) => this.moved(event));
     screen.addEventListener('pointerleave', () => {
@@ -35,10 +37,11 @@ export class PointerInput {
     });
   }
 
-  /** Follows the first port that has a GunCon or a mouse in it. */
+  /** Follows the first port that has a GunCon or a mouse in it (call again when players change ports). */
   setPadTypes(types: readonly PadType[]): void {
-    if (this.port >= 0) this.controllers[this.port].clear(SOURCE);
+    this.controller?.clear(SOURCE);
     this.port = types.findIndex((type) => type === 'guncon' || type === 'mouse');
+    this.controller = this.port >= 0 ? this.controllerFor(this.port) : null;
     this.type = this.port >= 0 ? types[this.port] : 'digital';
     this.buttons = this.motionX = this.motionY = 0;
     this.screen.classList.toggle('aiming', this.type === 'guncon');
@@ -109,8 +112,8 @@ export class PointerInput {
   }
 
   private update(): void {
-    if (this.port < 0) return;
+    if (!this.controller) return;
     const aim = this.type === 'guncon' ? (this.offScreen ? null : this.aim) : undefined;
-    this.controllers[this.port].set(SOURCE, { buttons: this.buttons, aim });
+    this.controller.set(SOURCE, { buttons: this.buttons, aim });
   }
 }

@@ -123,11 +123,16 @@ export class Emulator {
     this.clockDebt = 0;
   }
 
+  /** Each player's controls (players 1-4 are on port 1's Multitap when one is plugged in). */
   setPads(pads: PadState[]): void {
+    const players = this.machine.sio.playerPads;
     pads.forEach((state, i) => {
-      const pad = this.machine.sio.pads[i];
-      if (pad) pad.state = state;
+      if (players[i]) players[i].state = state;
     });
+  }
+
+  setMultitap(plugged: boolean): void {
+    this.machine.sio.taps[0].plugged = plugged;
   }
 
   setPadTypes(types: PadType[]): void {
@@ -139,9 +144,9 @@ export class Emulator {
     });
   }
 
-  /** Each pad's motors (still while the console isn't `running`). */
+  /** Each player's motors (still while the console isn't `running`). */
   rumble(running: boolean): Rumble[] {
-    return this.machine.sio.pads.map((pad) => (running ? { strong: pad.largeMotor / 255, weak: pad.smallMotor / 255 } : { strong: 0, weak: 0 }));
+    return this.machine.sio.playerPads.map((pad) => (running ? { strong: pad.largeMotor / 255, weak: pad.smallMotor / 255 } : { strong: 0, weak: 0 }));
   }
 
   /** The DualShock's Analog button. */
@@ -157,6 +162,7 @@ export class Emulator {
       details: this.media?.details ?? '',
       bios: this.biosName,
       pads: this.machine.sio.pads.map((pad) => ({ type: pad.type, analog: pad.analog })),
+      multitap: this.machine.sio.taps[0].plugged,
     };
   }
 
