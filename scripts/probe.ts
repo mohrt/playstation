@@ -4,6 +4,7 @@
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { ChdFile } from '../src/disc/chd';
+import { PbpFile } from '../src/disc/pbp';
 import { Disc, type ByteSource } from '../src/disc/disc';
 import { isPsExe, parsePsExe } from '../src/exe';
 import { discMedia } from '../src/media';
@@ -66,6 +67,8 @@ if (isPsExe(head)) {
   let disc: Disc;
   if (path.toLowerCase().endsWith('.chd')) {
     disc = Disc.fromChd(new ChdFile(new FileSource(path)));
+  } else if (path.toLowerCase().endsWith('.pbp')) {
+    disc = Disc.fromPbp(new PbpFile(new FileSource(path)).disc(Number(process.env.PBP_DISC ?? 0)));
   } else if (path.toLowerCase().endsWith('.cue')) {
     const cue = readFileSync(path, 'utf8');
     const files = new Map<string, ByteSource>();

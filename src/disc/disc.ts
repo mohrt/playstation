@@ -1,4 +1,5 @@
 import { ChdTrackSource, type ChdFile } from './chd';
+import type { PbpImage } from './pbp';
 
 /** A raw CD sector: 12 sync bytes, a 4-byte header, then 2336 bytes (subheader and data for mode 2). */
 export const SECTOR_SIZE = 2352;
@@ -214,6 +215,20 @@ export class Disc {
       lba += chdTrack.frames;
     }
     disc.leadOut = lba;
+    return disc;
+  }
+
+  /** A disc from one image of a PBP: its TOC only has index 1s, so later tracks get the usual 2-second pregap. */
+  static fromPbp(image: PbpImage): Disc {
+    const disc = new Disc();
+    const starts = image.tracks.map((track, i) => (i === 0 ? 0 : Math.max(image.tracks[i - 1].start, track.start - LEAD_IN)));
+    image.tracks.forEach((pbpTrack, i) => {
+      const end = i + 1 < image.tracks.length ? starts[i + 1] : image.leadOut;
+      const track: Track = { number: pbpTrack.number, audio: pbpTrack.audio, start: pbpTrack.start, length: end - pbpTrack.start };
+      disc.tracks.push(track);
+      disc.extents.push({ start: starts[i], end, source: image, offset: starts[i] * SECTOR_SIZE, sectorSize: SECTOR_SIZE, track });
+    });
+    disc.leadOut = image.leadOut;
     return disc;
   }
 

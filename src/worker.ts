@@ -20,6 +20,7 @@ function sendStatus(): void {
 }
 
 let lastTty = 0;
+let currentPbp: { name: string; size: number; disc: number } | null = null;
 function flushTty(): void {
   if (!emulator || emulator.tty.length === lastTty) return;
   const text = emulator.tty.slice(lastTty);
@@ -66,9 +67,14 @@ async function handle(message: ToWorker): Promise<void> {
       return;
     case 'media':
       try {
-        const media = loadMedia(message.files);
+        // The multi-disc PBP that's running, dropped again, goes on to its next disc.
+        const pbp = message.files.find((file) => file.name.toLowerCase().endsWith('.pbp'));
+        const samePbp = pbp !== undefined && currentPbp !== null && pbp.name === currentPbp.name && pbp.size === currentPbp.size && emu.hasDisc && emu.canRun;
+        const media = loadMedia(message.files, samePbp ? currentPbp!.disc + 1 : 0);
         if (message.title) media.title = message.title;
-        const swapped = message.swap === true && media.kind === 'disc' && emu.hasDisc && emu.canRun;
+        const pbpDisc = media.kind === 'disc' ? media.pbpDisc : undefined;
+        const swapped = (message.swap === true || (samePbp && pbpDisc !== undefined && pbpDisc.count > 1)) && media.kind === 'disc' && emu.hasDisc && emu.canRun;
+        currentPbp = pbp && pbpDisc ? { name: pbp.name, size: pbp.size, disc: pbpDisc.number } : null;
         if (swapped) emu.swap(media);
         else {
           emu.insert(media);

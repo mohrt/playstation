@@ -1,10 +1,11 @@
 import { ChdFile } from './disc/chd';
 import { BlobSource, Disc, discInfo, type ByteSource, type DiscInfo } from './disc/disc';
+import { PbpFile } from './disc/pbp';
 import { isPsExe, parsePsExe, type PsExe } from './exe';
 
 export const STATE_EXTENSION = '.psxstate';
 export const MEMORY_CARD_EXTENSIONS = ['.mcr', '.mcd', '.mem', '.gme', '.srm', '.mc'];
-const DISC_EXTENSIONS = ['.cue', '.bin', '.img', '.iso', '.chd'];
+const DISC_EXTENSIONS = ['.cue', '.bin', '.img', '.iso', '.chd', '.pbp'];
 const EXE_EXTENSIONS = ['.exe', '.psx', '.ps-exe'];
 
 const extension = (name: string) => {
@@ -39,7 +40,7 @@ export function gameName(title: string): string {
 }
 
 export type LoadedMedia =
-  | { kind: 'disc'; disc: Disc; info: DiscInfo; title: string; details: string; id: string }
+  | { kind: 'disc'; disc: Disc; info: DiscInfo; title: string; details: string; id: string; pbpDisc?: { number: number; count: number } }
   | { kind: 'exe'; exe: PsExe; bytes: Uint8Array; title: string; details: string };
 
 declare class FileReaderSync {
@@ -51,13 +52,27 @@ const REGION_NAMES = { 'ntsc-u': 'NTSC-U', 'ntsc-j': 'NTSC-J', pal: 'PAL' } as c
 
 /**
  * Makes a disc or a program from dropped files (in the worker, where files
- * can be read synchronously): a CUE sheet with its BIN files, a single BIN
- * or ISO image, or a PS-EXE.
+ * can be read synchronously): a CUE sheet with its BIN files, a CHD, a PBP,
+ * a single BIN or ISO image, or a PS-EXE. `pbpDisc` picks the disc of a
+ * multi-disc PBP (counting from 0, and wrapping around).
  */
-export function loadMedia(files: File[]): LoadedMedia {
+export function loadMedia(files: File[], pbpDisc = 0): LoadedMedia {
   const reader = new FileReaderSync();
   const chd = files.find((file) => extension(file.name) === '.chd');
   if (chd) return discMedia(Disc.fromChd(new ChdFile(new BlobSource(chd))), chd.name);
+  const pbp = files.find((file) => extension(file.name) === '.pbp');
+  if (pbp) {
+    const pbpFile = new PbpFile(new BlobSource(pbp));
+    const number = pbpDisc % pbpFile.discCount;
+    const media = discMedia(Disc.fromPbp(pbpFile.disc(number)), pbp.name);
+    media.title = pbpFile.title ?? media.title;
+    if (media.kind === 'disc') media.pbpDisc = { number, count: pbpFile.discCount };
+    if (pbpFile.discCount > 1) {
+      media.title += ` (Disc ${number + 1})`;
+      media.details += ` · disc ${number + 1} of ${pbpFile.discCount}`;
+    }
+    return media;
+  }
   const cue = files.find((file) => extension(file.name) === '.cue');
   if (cue) {
     const sources = new Map<string, ByteSource>(files.map((file) => [file.name, new BlobSource(file)]));
@@ -73,7 +88,7 @@ export function loadMedia(files: File[]): LoadedMedia {
     const details = `PS-EXE · ${Math.round(exe.text.length / 1024)}K at ${(exe.loadAddress >>> 0).toString(16)}`;
     return { kind: 'exe', exe, bytes, title: titleFromFileName(program.name), details };
   }
-  if (!image) throw new Error(`${files[0]?.name ?? 'That file'} isn't a disc image (.cue, .bin, .iso) or a PlayStation program (.exe).`);
+  if (!image) throw new Error(`${files[0]?.name ?? 'That file'} isn't a disc image (.cue, .chd, .pbp, .bin, .iso) or a PlayStation program (.exe).`);
   if (image.size < 2048 * 16) throw new Error(`${image.name} is too small to be a disc image.`);
   return discMedia(Disc.fromImage(new BlobSource(image)), image.name);
 }
