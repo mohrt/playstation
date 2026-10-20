@@ -1,0 +1,23 @@
+{
+  "name": "cursor-playstation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fetch:bios": "node scripts/fetch-bios.mjs",
+    "fetch:tests": "node scripts/fetch-tests.mjs",
+    "fetch:games": "node scripts/fetch-games.mjs",
+    "bench": "vite build --ssr scripts/bench.ts --outDir node_modules/.bench --emptyOutDir --logLevel warn && node node_modules/.bench/bench.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest';
+import { Irq } from '../src/irq';
+import { PlayStation } from '../src/playstation';
+import { formattedCard, MEMORY_CARD_SIZE } from '../src/sio/memory-card';
+import { idlePad, PadButton } from '../src/sio/pad';
+import { readMemoryCardFile } from '../src/storage/memory-cards';
+
+const JOY_DATA = 0x1f801040;
+const JOY_STAT = 0x1f801044;
+const JOY_CTRL = 0x1f80104a;
+const JOY_BAUD = 0x1f80104e;
+
+/** Talks to a port the way the BIOS does: select, then exchange bytes, waiting for each to arrive and be acknowledged. */
+function exchange(machine: PlayStation, port: number, bytes: number[]): { replies: number[]; acks: boolean[] } {
+  const bus = machine.bus;
+  bus.write16(JOY_BAUD, 0x88);
+  bus.write16(JOY_CTRL, 0x1003 | (port << 13)); // TX enable, select, ACK interrupt enable
+  machine.irq.writeMask(1 << Irq.Sio0);
+  const replies: number[] = [];
+  const acks: boolean[] = [];
+  for (const byte of bytes) {
+    machine.irq.writeStat(0);
+    bus.write16(JOY_CTRL, bus.read16(JOY_CTRL) | 0x10);
+    bus.write8(JOY_DATA, byte);
+    machine.run(1500);
+    expect(bus.read16(JOY_STAT) & 2).toBe(2);
+    replies.push(bus.read8(JOY_DATA));
+    acks.push((machine.irq.stat & (1 << Irq.Sio0)) !== 0);
+  }
+  bus.write16(JOY_CTRL, 0);
+  return { replies, acks };
+}
+
+function machine(): PlayStation {
+  const m = new PlayStation();
+  m.powerOn();
+  return m;
+}
+
+describe('controllers and memory cards', () => {
+  it('reads a digital pad: ID 41h, 5Ah, then the buttons (0 = pressed)', () => {
+    const m = machine();
+    m.sio.pads[0].state = { ...idlePad(), buttons: PadButton.Start | PadButton.Cross };
+    const { replies, acks } = exchange(m, 0, [0x01, 0x42, 0, 0, 0]);
+    expect(replies.slice(1)).toEqual([0x41, 0x5a, 0xf7, 0xbf]);
+    expect(acks).toEqual([true, true, true, true, false]);
+  });
+
+  it('switches a DualShock to analog mode through its config commands', () => {
+    const m = machine();
+    const pad = m.sio.pads[0];
+    pad.type = 'dualshock';
+    pad.state = { ...idlePad(), leftX: 0, rightY: 255 };
+    exchange(m, 0, [0x01, 0x43, 0x00, 0x01, 0x00]); // enter config
+    exchange(m, 0, [0x01, 0x44, 0x00, 0x01, 0x03, 0, 0, 0, 0]); // analog, locked
+    exchange(m, 0, [0x01, 0x43, 0x00, 0x00, 0x00, 0, 0, 0, 0]); // leave config
+    const { replies } = exchange(m, 0, [0x01, 0x42, 0, 0, 0, 0, 0, 0, 0]);
+    expect(replies[1]).toBe(0x73);
+    expect(replies.slice(5)).toEqual([128, 255, 0, 128]);
+  });
+
+  it('leaves a port with nothing answering unacknowledged', () => {
+    const m = machine();
+    const { replies, acks } = exchange(m, 1, [0x99]);
+    expect(replies).toEqual([0xff]);
+    expect(acks).toEqual([false]);
+  });
+
+  it('writes and reads back a memory card sector', () => {
+    const m = machine();
+    const data = Array.from({ length: 128 }, (_, i) => (i * 7) & 0xff);
+    const checksum = data.reduce((x, b) => x ^ b, 0x00 ^ 0x45);
+    const write = exchange(m, 0, [0x81, 0x57, 0, 0, 0x00, 0x45, ...data, checksum, 0, 0, 0]);
+    expect(write.replies[1]).toBe(0x08); // a fresh card reports "not written yet"
+    expect(write.replies.slice(-3)).toEqual([0x5c, 0x5d, 0x47]);
+    expect(m.sio.cards[0].dirty).toBe(true);
+
+    const read = exchange(m, 0, [0x81, 0x52, 0, 0, 0x00, 0x45, 0, 0, 0, 0, ...Array(128).fill(0), 0, 0]);
+    expect(read.replies[1]).toBe(0x00);
+    expect(read.replies.slice(2, 4)).toEqual([0x5a, 0x5d]);
+    expect(read.replies.slice(10, 138)).toEqual(data);
+    expect(read.replies[138]).toBe(checksum);
+    expect(read.replies[139]).toBe(0x47);
+  });
+
+  it('gives the card ID for command S', () => {
+    const m = machine();
+    const { replies } = exchange(m, 1, [0x81, 0x53, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(replies.slice(2)).toEqual([0x5a, 0x5d, 0x5c, 0x5d, 0x04, 0x00, 0x00, 0x80]);
+  });
+
+  it('starts cards formatted and reads DexDrive files', () => {
+    const card = formattedCard();
+    expect(String.fromCharCode(card[0], card[1])).toBe('MC');
+    const gme = new Uint8Array(MEMORY_CARD_SIZE + 3904);
+    gme.set(new TextEncoder().encode('123-456-STD'));
+    gme.set(card, 3904);
+    expect(readMemoryCardFile(gme)).toEqual(card);
+    expect(() => readMemoryCardFile(new Uint8Array(100))).toThrow();
+  });
+});

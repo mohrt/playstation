@@ -1,0 +1,15 @@
+{
+  "games": [
+    {
+      "title": "Tetrade",
+      "file": "tetrade.bin",
+      "url": "https://github.com/Logan-Campbell/Tetrade/releases/download/v1.0/TETRADE_PSX.bin",
+      "sha256": "2f41feba2023cbdcd9c1c3d4cfc3d8d1a7f1a2de0afea2e7a050b84640d6eaf8",
+      "credit": "Logan Campbell",
+      "license": "MIT",
+      "licenseFile": "https://raw.githubusercontent.com/Logan-Campbell/Tetrade/5155664152162a0dc04dc1f0d4f3c807c1e15388/LICENSE",
+      "sourceUrl": "https://github.com/Logan-Campbell/Tetrade",
+      "hint": "Falling blocks for one or two players, on disc. Cross and circle rotate, up drops, down speeds the fall."
+    }
+  ]
+}

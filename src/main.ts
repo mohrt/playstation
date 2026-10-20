@@ -1,0 +1,402 @@
+import { AudioOutput } from './audio/audio-output';
+import { fetchGame, loadGameManifest, type BundledGame } from './games';
+import { ControllerInput } from './io/controllers';
+import { GamepadManager, padName, readGamepad } from './io/gamepad-input';
+import { KeyboardInput } from './io/keyboard-input';
+import { fileKind, STATE_EXTENSION } from './media';
+import type { ConsoleStatus, FromWorker, ToWorker } from './protocol';
+import { SCREEN_ASPECT } from './render/screen';
+import { formattedCard } from './sio/memory-card';
+import type { PadState, PadType } from './sio/pad';
+import { BiosStore, biosName, checkBios, looksLikeBios } from './storage/bios-store';
+import { MemoryCards, readMemoryCardFile } from './storage/memory-cards';
+import { SaveStates, type SaveStateRecord } from './storage/save-states';
+import { memoryStores, openBrowserStores, type KeyValueStore } from './storage/store';
+import { DiscPanel } from './ui/disc-panel';
+import { downloadFile } from './ui/download';
+import { Settings } from './ui/settings';
+import { attachToolbar } from './ui/toolbar';
+import { OnScreenPad } from './ui/touch-pad';
+
+/** Form fields whose values are remembered between visits. */
+const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'show-pad', 'pad-player', 'sound', 'volume'];
+const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
+const PLAYERS = 2;
+
+function requireElement<T extends HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Page is missing ${selector}`);
+  return element;
+}
+
+const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'playstation';
+
+const padLabel = (type: PadType, analog: boolean) => (type === 'dualshock' ? `DualShock${analog ? ' (analog)' : ''}` : 'digital pad');
+
+async function loadOpenBios(): Promise<Uint8Array> {
+  const response = await fetch(`${import.meta.env.BASE_URL}bios/openbios.bin`);
+  const isPage = response.headers.get('content-type')?.includes('text/html') ?? false;
+  if (!response.ok || isPage) throw new Error('OpenBIOS is missing from this site (run npm run fetch:bios).');
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function main(): Promise<void> {
+  const canvas = requireElement<HTMLCanvasElement>('#screen');
+  const status = requireElement<HTMLParagraphElement>('#status');
+  const screenFrame = requireElement<HTMLElement>('.screen-frame');
+  document.documentElement.style.setProperty('--screen-aspect', SCREEN_ASPECT.toFixed(4));
+
+  try {
+    if (!('transferControlToOffscreen' in canvas)) throw new Error('This browser is too old for the emulator (no OffscreenCanvas).');
+    const settings = new Settings();
+    const showPad = requireElement<HTMLInputElement>('input[name="show-pad"]');
+    showPad.checked = matchMedia('(pointer: coarse)').matches;
+    settings.bind(document, REMEMBERED_SETTINGS);
+
+    const stores = await openBrowserStores().catch((error: unknown) => {
+      console.warn('Browser storage is unavailable; saves will last until the page is closed.', error);
+      return memoryStores();
+    });
+    const saveStates = new SaveStates(stores.saveStates as KeyValueStore<SaveStateRecord>);
+    const memoryCards = new MemoryCards(stores.memoryCards as KeyValueStore<Uint8Array>);
+    const biosStore = new BiosStore(stores.bios as KeyValueStore<Uint8Array>);
+    const cards = await Promise.all([0, 1].map((slot) => memoryCards.load(slot).catch(() => null)));
+    const cardData = cards.map((data) => data ?? formattedCard());
+    let userBios = await biosStore.load().catch(() => null);
+    let useOwnBios = userBios !== null && localStorage.getItem(USE_OWN_BIOS_KEY) !== 'false';
+    const openBios = await loadOpenBios();
+
+    const audio = await AudioOutput.create().catch((error: unknown) => {
+      console.warn('Audio is unavailable:', error);
+      return null;
+    });
+
+    // --- The worker ---------------------------------------------------------------------
+    const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+    const post = (message: ToWorker, transfer: Transferable[] = []) => worker.postMessage(message, transfer);
+    const offscreen = canvas.transferControlToOffscreen();
+    post(
+      {
+        type: 'init',
+        canvas: offscreen,
+        audioPort: audio?.port ?? null,
+        sampleRate: audio?.sampleRate ?? 44100,
+        openBios,
+        userBios,
+        useUserBios: useOwnBios,
+        cards: cardData.map((data) => data.slice()),
+      },
+      audio ? [offscreen, audio.port] : [offscreen],
+    );
+
+    let consoleStatus: ConsoleStatus | null = null;
+    let speed = 1;
+    let paused = false;
+    let fastForward = false;
+    let waitingForFrame = false;
+    let pendingState: { resolve: (value: { bytes: Uint8Array; title: string }) => void; reject: (error: Error) => void } | null = null;
+    let pendingLoad: { resolve: () => void; reject: (error: Error) => void } | null = null;
+    const focusScreen = () => canvas.focus();
+
+    const updateStatus = () => {
+      const s = consoleStatus;
+      if (!s) return;
+      const parts = [s.title ?? 'No disc', s.bios === 'OpenBIOS' ? 'OpenBIOS' : 'your BIOS'];
+      s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}`));
+      if (speed < 0.95) parts.push(`running at ${Math.round(speed * 100)}% speed`);
+      status.textContent = `${parts.join(' · ')} · Arrows, S Z X C and Enter play`;
+      screenFrame.classList.toggle('empty', s.title === null);
+      toolbar.setCanSave(s.title !== null);
+      toolbar.setAnalog(s.pads[0]?.type === 'dualshock', s.pads[0]?.analog ?? false);
+    };
+
+    worker.onmessage = (event: MessageEvent<FromWorker>) => {
+      const message = event.data;
+      switch (message.type) {
+        case 'frame':
+          waitingForFrame = false;
+          if (Math.abs(message.speed - speed) > 0.02) {
+            speed = message.speed;
+            updateStatus();
+          }
+          return;
+        case 'status':
+          consoleStatus = message.status;
+          updateStatus();
+          return;
+        case 'media-loaded':
+          discPanel.showMedia(message.title, message.details);
+          audio?.flush();
+          return;
+        case 'memory-card':
+          cardData[message.slot] = message.data;
+          void memoryCards.save(message.slot, message.data).catch((error: unknown) => console.warn('Could not keep the memory card:', error));
+          return;
+        case 'state':
+          pendingState?.resolve(message);
+          pendingState = null;
+          return;
+        case 'state-loaded':
+          pendingLoad?.resolve();
+          pendingLoad = null;
+          audio?.flush();
+          return;
+        case 'tty':
+          for (const line of message.text.split('\n')) if (line.trim()) console.info(`[PlayStation] ${line}`);
+          return;
+        case 'error':
+          if (message.context === 'state') {
+            const error = new Error(message.message);
+            pendingState?.reject(error);
+            pendingLoad?.reject(error);
+            pendingState = pendingLoad = null;
+          } else if (message.context === 'media') {
+            discPanel.showMessage(message.message);
+          } else {
+            toolbar.showMessage(message.message, true);
+          }
+          return;
+      }
+    };
+    worker.onerror = (event) => {
+      status.textContent = `The emulator failed to start: ${event.message}`;
+    };
+
+    const requestState = () =>
+      new Promise<{ bytes: Uint8Array; title: string }>((resolve, reject) => {
+        pendingState = { resolve, reject };
+        post({ type: 'save-state' });
+      });
+    const loadState = (bytes: Uint8Array) =>
+      new Promise<void>((resolve, reject) => {
+        pendingLoad = { resolve, reject };
+        post({ type: 'load-state', bytes }, [bytes.buffer]);
+      });
+
+    // --- BIOS ---------------------------------------------------------------------------
+    const applyBios = () => {
+      post({ type: 'bios', userBios, useUserBios: useOwnBios });
+      discPanel.showBios(userBios ? biosName(userBios) : null, useOwnBios);
+      try {
+        localStorage.setItem(USE_OWN_BIOS_KEY, String(useOwnBios));
+      } catch {
+        // Not remembered.
+      }
+      audio?.flush();
+    };
+    const useBiosImage = async (bytes: Uint8Array) => {
+      const image = checkBios(bytes);
+      await biosStore.save(image);
+      userBios = image;
+      useOwnBios = true;
+      applyBios();
+      discPanel.showMessage(`${biosName(image)} kept in this browser; the console was switched off and on to use it.`, true);
+    };
+
+    // --- Files --------------------------------------------------------------------------
+    const importCard = async (slot: number, file: File) => {
+      const data = readMemoryCardFile(new Uint8Array(await file.arrayBuffer()));
+      cardData[slot] = data;
+      await memoryCards.save(slot, data);
+      post({ type: 'memory-card', slot, data: data.slice() });
+      discPanel.showMessage(`Memory card ${slot + 1} replaced with ${file.name}.`, true);
+    };
+
+    const onFiles = async (files: File[]) => {
+      const state = files.find((file) => fileKind(file.name) === 'state');
+      if (state) {
+        await loadState(new Uint8Array(await state.arrayBuffer()));
+        toolbar.showMessage('Save state loaded');
+        return;
+      }
+      const card = files.find((file) => fileKind(file.name) === 'memory-card');
+      if (card) {
+        if (confirm(`Put ${card.name} in as memory card 1? What is on the card now will be lost.`)) await importCard(0, card);
+        return;
+      }
+      const bios = files.find((file) => file.size === 0x80000 && (looksLikeBios(file.name) || fileKind(file.name) === 'other'));
+      if (bios && files.length === 1) {
+        await useBiosImage(new Uint8Array(await bios.arrayBuffer()));
+        return;
+      }
+      post({ type: 'media', files });
+    };
+
+    // --- Panels -------------------------------------------------------------------------
+    let bundledGames: BundledGame[] = [];
+    const discPanel = new DiscPanel(requireElement('#disc-panel'), {
+      onFiles,
+      onGame: async (index) => {
+        const game = bundledGames[index];
+        post({ type: 'media', files: [await fetchGame(import.meta.env.BASE_URL, game)], title: game.title });
+      },
+      onEject: () => {
+        post({ type: 'eject' });
+        discPanel.showEmpty();
+      },
+      onBiosFile: async (file) => useBiosImage(new Uint8Array(await file.arrayBuffer())),
+      onUseBios: (useOwn) => {
+        useOwnBios = useOwn && userBios !== null;
+        applyBios();
+      },
+      onForgetBios: async () => {
+        await biosStore.forget();
+        userBios = null;
+        useOwnBios = false;
+        applyBios();
+      },
+      onExportCard: (slot) => downloadFile(cardData[slot], `memory-card-${slot + 1}.mcr`),
+      onImportCard: importCard,
+      focusScreen,
+    });
+    discPanel.showBios(userBios ? biosName(userBios) : null, useOwnBios);
+
+    const refreshStates = async () => toolbar.setStates(await saveStates.list());
+    const toolbar = attachToolbar(requireElement('#toolbar'), {
+      onPause: (pause) => {
+        paused = pause;
+        screenFrame.classList.toggle('paused', pause);
+        post({ type: 'pause', paused: pause });
+        audio?.flush();
+      },
+      onReset: () => post({ type: 'reset' }),
+      onPowerCycle: () => {
+        post({ type: 'power' });
+        audio?.flush();
+      },
+      onFullscreen: () => {
+        if (document.fullscreenElement) {
+          void document.exitFullscreen();
+          return;
+        }
+        void screenFrame.requestFullscreen().then(focusScreen);
+      },
+      onPadTypes: (types) => post({ type: 'pad-types', types }),
+      onAnalog: () => post({ type: 'analog', port: 0 }),
+      onSaveState: async () => {
+        const { bytes, title } = await requestState();
+        await saveStates.add(title, bytes);
+        await refreshStates();
+        toolbar.showMessage('State saved');
+      },
+      onLoadState: async (id) => {
+        const bytes = await saveStates.load(id);
+        if (!bytes) throw new Error('That save state no longer exists.');
+        await loadState(bytes.slice());
+        toolbar.showMessage('State loaded');
+      },
+      onDeleteState: async (id) => {
+        await saveStates.delete(id);
+        await refreshStates();
+      },
+      onExportState: async () => {
+        const { bytes, title } = await requestState();
+        downloadFile(bytes, `${slug(title)}${STATE_EXTENSION}`);
+      },
+      onImportState: async (file) => {
+        await loadState(new Uint8Array(await file.arrayBuffer()));
+        toolbar.showMessage('Save state loaded');
+      },
+      focusScreen,
+    });
+    await refreshStates();
+    post({ type: 'pad-types', types: toolbar.padTypes });
+
+    void loadGameManifest(import.meta.env.BASE_URL).then((games) => {
+      bundledGames = games;
+      const href = (link?: string) => (link?.startsWith('games/') ? `${import.meta.env.BASE_URL}${link}` : link);
+      discPanel.setGames(games.map((game) => ({ ...game, licenseHref: href(game.licenseUrl), sourceHref: href(game.sourceUrl) })));
+    });
+
+    // --- Inputs -------------------------------------------------------------------------
+    const controllers = [new ControllerInput(), new ControllerInput()];
+    new KeyboardInput(controllers[0], {
+      onPause: () => toolbar.setPaused(!toolbar.paused),
+      onFastForward: (held) => {
+        fastForward = held;
+        if (!held) audio?.flush();
+      },
+    }).attach(window);
+    const gamepads = new GamepadManager();
+    gamepads.attach(window);
+    const gamepadStatus = requireElement<HTMLElement>('.gamepad-status');
+
+    const padRoot = requireElement<HTMLElement>('#pad');
+    const pad = new OnScreenPad(padRoot, controllers[0], focusScreen);
+    const padPlayer = requireElement<HTMLSelectElement>('select[name="pad-player"]');
+    const applyPad = () => {
+      padRoot.hidden = !showPad.checked;
+      pad.setController(controllers[padPlayer.value === '1' ? 1 : 0]);
+    };
+    showPad.addEventListener('change', applyPad);
+    padPlayer.addEventListener('change', applyPad);
+    applyPad();
+
+    const sound = requireElement<HTMLInputElement>('input[name="sound"]');
+    const volume = requireElement<HTMLInputElement>('input[name="volume"]');
+    const soundHint = requireElement<HTMLElement>('.sound-hint');
+    const applySound = () => {
+      post({ type: 'sound', enabled: sound.checked });
+      audio?.setVolume(Number(volume.value));
+      if (!sound.checked) audio?.flush();
+    };
+    sound.addEventListener('change', applySound);
+    volume.addEventListener('input', applySound);
+    applySound();
+    if (!audio) {
+      sound.disabled = volume.disabled = true;
+      soundHint.textContent = 'Sound is not supported in this browser';
+      soundHint.hidden = false;
+    } else if (!audio.running) {
+      soundHint.hidden = false;
+      audio.resumeOnGesture(window, () => (soundHint.hidden = true));
+    }
+
+    // --- Main loop ----------------------------------------------------------------------
+    let lastPadNames = '';
+    let lastPads = '';
+    const pollInputs = () => {
+      const pads = gamepads.connected();
+      for (let player = 0; player < PLAYERS; player++) {
+        const gamepad = pads[player];
+        if (gamepad) controllers[player].set('gamepad', readGamepad(gamepad));
+        else controllers[player].clear('gamepad');
+      }
+      const states: PadState[] = controllers.map((controller) => controller.state);
+      const key = JSON.stringify(states);
+      if (key !== lastPads) {
+        lastPads = key;
+        post({ type: 'pads', pads: states });
+      }
+      const names = pads
+        .slice(0, PLAYERS)
+        .map((gamepad, player) => `Player ${player + 1}: ${padName(gamepad)}`)
+        .join(' · ');
+      if (names !== lastPadNames) {
+        lastPadNames = names;
+        gamepadStatus.textContent = names;
+      }
+    };
+
+    let last = performance.now();
+    const frame = (now: number) => {
+      pollInputs();
+      // The worker gets the next slice of time only once it has shown the last one, so a slow
+      // computer runs the game slower rather than piling up work.
+      if (!waitingForFrame) {
+        const elapsed = now - last;
+        last = now;
+        waitingForFrame = true;
+        post({ type: 'run', elapsed: paused ? 0 : elapsed, fastForward });
+      }
+      requestAnimationFrame(frame);
+    };
+    focusScreen();
+    requestAnimationFrame(frame);
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
+}
+
+void main();

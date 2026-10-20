@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#111111" />
+    <title>PlayStation</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <div class="screen-frame">
+        <canvas id="screen" width="320" height="240" tabindex="0" aria-label="PlayStation screen"></canvas>
+        <p class="paused-label">Paused</p>
+        <p class="empty-label">Insert a disc to switch on</p>
+      </div>
+
+      <section id="toolbar" class="toolbar" aria-label="Console">
+        <span class="toolbar-group">
+          <button type="button" data-action="pause" title="P or the Pause key">Pause</button>
+          <button type="button" data-action="reset" title="The console's Reset button">Reset</button>
+          <button type="button" data-action="power" title="Switch the console off and on again">Power cycle</button>
+          <button type="button" data-action="fullscreen" title="Esc leaves full screen">Full screen</button>
+        </span>
+        <span class="toolbar-group">
+          <select name="pad1" aria-label="Controller 1" title="The controller in port 1">
+            <option value="digital" selected>Pad 1: Digital</option>
+            <option value="dualshock">Pad 1: DualShock</option>
+          </select>
+          <button type="button" data-action="analog" title="The DualShock's Analog button: switches the sticks on and off" hidden>Analog: off</button>
+          <select name="pad2" aria-label="Controller 2" title="The controller in port 2">
+            <option value="digital" selected>Pad 2: Digital</option>
+            <option value="dualshock">Pad 2: DualShock</option>
+          </select>
+        </span>
+        <span class="toolbar-group">
+          <button type="button" data-action="save-state" title="Save the whole console, to come back to later">Save state</button>
+          <select name="state-slot" aria-label="Save states"></select>
+          <button type="button" data-action="load-state">Load</button>
+          <button type="button" data-action="delete-state">Delete</button>
+          <button type="button" data-action="export-state" title="Download the current state as a file">Export</button>
+          <button type="button" data-action="import-state">Import...</button>
+        </span>
+        <span class="toolbar-message" role="status"></span>
+        <input type="file" name="state-file" accept=".psxstate" hidden />
+      </section>
+
+      <section id="disc-panel" class="cart-panel" data-state="empty" aria-label="Disc tray">
+        <div class="cart-empty">
+          <p class="cart-title">Drop a .cue with its .bin files, a .bin or .iso disc image, or a PlayStation .exe here</p>
+          <button type="button" data-action="choose">Choose files...</button>
+        </div>
+        <div class="cart-loaded">
+          <p class="cart-title"><span class="cart-name"></span></p>
+          <p class="cart-details"></p>
+          <div class="cart-actions">
+            <button type="button" data-action="choose">Change disc</button>
+            <button type="button" data-action="eject">Eject</button>
+          </div>
+        </div>
+        <div class="bundled-games" hidden>
+          <p class="bundled-games-row">
+            Free games:
+            <select name="bundled-game" aria-label="Free games"></select>
+            <button type="button" data-action="play-game">Play</button>
+          </p>
+          <p class="game-info"></p>
+        </div>
+        <p class="bios-row">
+          <label title="Start with your own BIOS (from your console) instead of OpenBIOS">
+            <input type="checkbox" name="use-own-bios" /> Use my BIOS
+          </label>
+          <span class="boot-rom-status">Using OpenBIOS, the free BIOS</span>
+          <button type="button" data-action="choose-bios" title="Your own PlayStation BIOS image (512K); none is needed">Add BIOS...</button>
+          <button type="button" data-action="forget-bios" hidden>Forget</button>
+        </p>
+        <p class="bios-row" data-card="0">
+          Memory card 1:
+          <button type="button" data-action="export-card" title="Download the card as a .mcr file">Download .mcr</button>
+          <button type="button" data-action="import-card" title="Replace the card with a .mcr, .mcd or .gme file">Load card...</button>
+          <input type="file" accept=".mcr,.mcd,.mem,.gme,.srm,.mc" hidden />
+        </p>
+        <p class="bios-row" data-card="1">
+          Memory card 2:
+          <button type="button" data-action="export-card" title="Download the card as a .mcr file">Download .mcr</button>
+          <button type="button" data-action="import-card" title="Replace the card with a .mcr, .mcd or .gme file">Load card...</button>
+          <input type="file" accept=".mcr,.mcd,.mem,.gme,.srm,.mc" hidden />
+        </p>
+        <p class="cart-drop-hint">Release to insert</p>
+        <p class="cart-message" role="status"></p>
+        <input type="file" name="disc-files" accept=".cue,.bin,.img,.iso,.exe,.psx,.psxstate,.mcr,.mcd,.mem,.gme" multiple hidden />
+        <input type="file" name="bios-file" accept=".bin,.rom" hidden />
+      </section>
+
+      <section id="controls" class="controls" aria-label="Controllers">
+        <div class="controls-row">
+          <label><input type="checkbox" name="show-pad" /> On-screen controller</label>
+          <label>
+            for
+            <select name="pad-player" aria-label="Which controller the on-screen controller presses">
+              <option value="0" selected>Player 1</option>
+              <option value="1">Player 2</option>
+            </select>
+          </label>
+          <label><input type="checkbox" name="sound" checked /> Sound</label>
+          <label>
+            Volume
+            <input type="range" name="volume" min="0" max="1" step="0.05" value="0.8" />
+          </label>
+          <span class="sound-hint" hidden>Click or press a key to start sound</span>
+        </div>
+        <div id="pad" class="pad" hidden>
+          <div class="pad-shoulders left">
+            <button type="button" data-button="L2">L2</button>
+            <button type="button" data-button="L1">L1</button>
+          </div>
+          <div class="pad-shoulders right">
+            <button type="button" data-button="R1">R1</button>
+            <button type="button" data-button="R2">R2</button>
+          </div>
+          <div class="pad-dpad" role="group" aria-label="D-pad"></div>
+          <div class="pad-middle">
+            <button type="button" data-button="Select">Select</button>
+            <button type="button" data-button="Start">Start</button>
+          </div>
+          <div class="pad-face">
+            <button type="button" data-button="Triangle" aria-label="Triangle">△</button>
+            <button type="button" data-button="Square" aria-label="Square">□</button>
+            <button type="button" data-button="Circle" aria-label="Circle">○</button>
+            <button type="button" data-button="Cross" aria-label="Cross">✕</button>
+          </div>
+        </div>
+        <p class="gamepad-status" aria-live="polite"></p>
+        <p class="controls-hint">
+          Keyboard (player 1): arrow keys for the D-pad, S, Z, X and C for triangle, square, cross and circle, Q and E for
+          L1 and R1, 1 and 3 for L2 and R2, Enter for Start and right Shift for Select. Hold Tab or Space to fast-forward.
+          Gamepads work as soon as you press a button; the first is player 1, the second player 2, laid out as on a
+          DualShock (sticks included, with the DualShock controller and its Analog button on).
+        </p>
+      </section>
+
+      <p id="status">Starting...</p>
+      <nav class="emulator-links" aria-label="Emulators">
+        Emulators:
+        <a href="https://mohrt.github.io/sz81/">Timex Sinclair 1000</a>
+        <a href="https://mohrt.github.io/c64/">Commodore 64</a>
+        <a href="https://mohrt.github.io/amiga500/">Amiga 500</a>
+        <a href="https://mohrt.github.io/atari2600/">Atari 2600</a>
+        <a href="https://mohrt.github.io/intellivision/">Intellivision</a>
+        <a href="https://mohrt.github.io/colecovision/">ColecoVision</a>
+        <a href="https://mohrt.github.io/nes/">NES</a>
+        <a href="https://mohrt.github.io/mastersystem/">Sega Master System</a>
+        <a href="https://mohrt.github.io/genesis/">Sega Genesis</a>
+        <a href="https://mohrt.github.io/gameboy/">Game Boy</a>
+        <strong aria-current="page">PlayStation</strong>
+      </nav>
+      <footer class="site-links">
+        <a href="https://mohrt.com/">mohrt.com</a>
+        <a href="https://github.com/mohrt/playstation" target="_blank" rel="noopener">Source on GitHub</a>
+        <a href="https://x.com/mohrt" target="_blank" rel="noopener">@mohrt on X</a>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

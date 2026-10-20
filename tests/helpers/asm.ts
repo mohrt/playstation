@@ -1,0 +1,36 @@
+/** A few MIPS instruction encoders, for writing small CPU tests by hand. */
+const r = (rs: number, rt: number, rd: number, shamt: number, funct: number) => ((rs << 21) | (rt << 16) | (rd << 11) | (shamt << 6) | funct) >>> 0;
+const i = (op: number, rs: number, rt: number, imm: number) => ((op << 26) | (rs << 21) | (rt << 16) | (imm & 0xffff)) >>> 0;
+
+export const asm = {
+  nop: () => 0,
+  sll: (rd: number, rt: number, sa: number) => r(0, rt, rd, sa, 0x00),
+  jr: (rs: number) => r(rs, 0, 0, 0, 0x08),
+  syscall: () => 0x0c,
+  mfhi: (rd: number) => r(0, 0, rd, 0, 0x10),
+  mflo: (rd: number) => r(0, 0, rd, 0, 0x12),
+  mult: (rs: number, rt: number) => r(rs, rt, 0, 0, 0x18),
+  multu: (rs: number, rt: number) => r(rs, rt, 0, 0, 0x19),
+  div: (rs: number, rt: number) => r(rs, rt, 0, 0, 0x1a),
+  divu: (rs: number, rt: number) => r(rs, rt, 0, 0, 0x1b),
+  add: (rd: number, rs: number, rt: number) => r(rs, rt, rd, 0, 0x20),
+  addu: (rd: number, rs: number, rt: number) => r(rs, rt, rd, 0, 0x21),
+  slt: (rd: number, rs: number, rt: number) => r(rs, rt, rd, 0, 0x2a),
+  sltu: (rd: number, rs: number, rt: number) => r(rs, rt, rd, 0, 0x2b),
+  beq: (rs: number, rt: number, offset: number) => i(0x04, rs, rt, offset),
+  bne: (rs: number, rt: number, offset: number) => i(0x05, rs, rt, offset),
+  bltzal: (rs: number, offset: number) => i(0x01, rs, 0x10, offset),
+  addiu: (rt: number, rs: number, imm: number) => i(0x09, rs, rt, imm),
+  ori: (rt: number, rs: number, imm: number) => i(0x0d, rs, rt, imm),
+  lui: (rt: number, imm: number) => i(0x0f, 0, rt, imm),
+  mtc0: (rt: number, rd: number) => ((0x10 << 26) | (4 << 21) | (rt << 16) | (rd << 11)) >>> 0,
+  mfc0: (rt: number, rd: number) => ((0x10 << 26) | (rt << 16) | (rd << 11)) >>> 0,
+  lb: (rt: number, rs: number, offset: number) => i(0x20, rs, rt, offset),
+  lwl: (rt: number, rs: number, offset: number) => i(0x22, rs, rt, offset),
+  lw: (rt: number, rs: number, offset: number) => i(0x23, rs, rt, offset),
+  lwr: (rt: number, rs: number, offset: number) => i(0x26, rs, rt, offset),
+  sb: (rt: number, rs: number, offset: number) => i(0x28, rs, rt, offset),
+  swl: (rt: number, rs: number, offset: number) => i(0x2a, rs, rt, offset),
+  sw: (rt: number, rs: number, offset: number) => i(0x2b, rs, rt, offset),
+  swr: (rt: number, rs: number, offset: number) => i(0x2e, rs, rt, offset),
+};

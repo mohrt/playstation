@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+
+# Disc images, BIOS images and test programs are never committed: scripts download the free ones.
+roms/
+*.bin
+*.cue
+*.iso
+*.exe
+public/games/
+public/bios/
+tests/fixtures/ps1-tests/
