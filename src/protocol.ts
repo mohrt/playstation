@@ -5,7 +5,8 @@ export type ToWorker =
   | { type: 'init'; canvas: OffscreenCanvas; audioPort: MessagePort | null; sampleRate: number; openBios: Uint8Array; userBios: Uint8Array | null; useUserBios: boolean; cards: (Uint8Array | null)[] }
   | { type: 'run'; elapsed: number; fastForward: boolean }
   | { type: 'pause'; paused: boolean }
-  | { type: 'media'; files: File[]; title?: string }
+  /** `swap` changes discs without restarting, if a disc game is running. */
+  | { type: 'media'; files: File[]; title?: string; swap?: boolean }
   | { type: 'eject' }
   | { type: 'power' }
   | { type: 'reset' }
@@ -34,7 +35,7 @@ export type FromWorker =
   /** A slice of time was run and shown; `speed` is how close to full speed the console keeps up. */
   | { type: 'frame'; speed: number }
   | { type: 'status'; status: ConsoleStatus }
-  | { type: 'media-loaded'; title: string; details: string; kind: 'disc' | 'exe' }
+  | { type: 'media-loaded'; title: string; details: string; kind: 'disc' | 'exe'; swapped: boolean }
   | { type: 'memory-card'; slot: number; data: Uint8Array }
   | { type: 'state'; bytes: Uint8Array; title: string }
   | { type: 'state-loaded' }

@@ -88,11 +88,7 @@ export class PlayStation {
     this.timers.reset();
     this.gpu.reset();
     this.sio.reset();
-    const disc = this.cdrom.disc;
-    const region = this.cdrom.region;
     this.cdrom.reset();
-    this.cdrom.disc = disc;
-    this.cdrom.region = region;
     this.spu.reset();
     this.mdec.reset();
     this.cpu.reset();

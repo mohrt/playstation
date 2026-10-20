@@ -112,6 +112,19 @@ describe('CD-ROM controller', () => {
     expect(Array.from(sample)).toEqual([0x1000, -0x1000]);
   });
 
+  it('swaps discs with the lid opening and closing, without a restart', () => {
+    const d = new Drive();
+    expect(d.command(0x01)).toEqual([3, [0x02]]);
+    d.m.cdrom.swapDisc(testDisc(), 'pal');
+    expect(d.command(0x01)[1][0] & 0x10).toBe(0x10); // lid open
+    expect(d.command(0x13)[0]).toBe(5); // no disc while it's open
+    d.m.run(40_000_000);
+    expect(d.command(0x01)).toEqual([3, [0x12]]); // closed again: "was opened" shows once
+    expect(d.command(0x01)).toEqual([3, [0x02]]);
+    expect(d.command(0x1a)[0]).toBe(3);
+    expect(d.next()[1][7]).toBe(0x45); // SCEE: the new disc's region
+  });
+
   it('reports an error for commands that need a disc when there is none', () => {
     const d = new Drive();
     d.m.insertDisc(null);

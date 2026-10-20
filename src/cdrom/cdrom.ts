@@ -26,6 +26,8 @@ const INIT_ACK_DELAY = 80_000;
 const GETID_DELAY = 0x4a00;
 const SECTOR_CYCLES = CPU_HZ / 75;
 const MIN_SEEK_CYCLES = 20_000;
+/** How long the lid stays open when discs are swapped. */
+const LID_OPEN_CYCLES = CPU_HZ;
 
 /** The ring buffer of CD audio (CD-DA and XA) waiting for the SPU, in stereo samples. */
 const AUDIO_BUFFER = 44100;
@@ -106,6 +108,10 @@ export class CdRom implements CdAudioSource {
   private readonly secondEvent: TimedEvent;
   private readonly driveEvent: TimedEvent;
   private readonly deliverEvent: TimedEvent;
+  private readonly lidEvent: TimedEvent;
+  /** The disc going in while the lid is open for a swap. */
+  private nextDisc: Disc | null = null;
+  private nextRegion: DiscRegion = 'ntsc-u';
   private secondResponse: SecondResponse = 'none';
   /** What the drive does when its next event comes (seeks end, sectors are read). */
   private driveAction: DriveAction = 'none';
@@ -118,6 +124,7 @@ export class CdRom implements CdAudioSource {
     this.secondEvent = sched.add(new TimedEvent('cdrom-second', () => this.sendSecond()));
     this.driveEvent = sched.add(new TimedEvent('cdrom-drive', () => this.driveTick()));
     this.deliverEvent = sched.add(new TimedEvent('cdrom-deliver', () => this.deliver()));
+    this.lidEvent = sched.add(new TimedEvent('cdrom-lid', () => this.closeLid()));
   }
 
   reset(): void {
@@ -142,7 +149,8 @@ export class CdRom implements CdAudioSource {
     this.pendingVolume = [0x80, 0x00, 0x00, 0x80];
     this.audioRead = this.audioWrite = 0;
     this.xa.reset();
-    for (const event of [this.ackEvent, this.secondEvent, this.driveEvent, this.deliverEvent]) this.sched.cancel(event);
+    for (const event of [this.ackEvent, this.secondEvent, this.driveEvent, this.deliverEvent, this.lidEvent]) this.sched.cancel(event);
+    if (this.nextDisc) this.closeLid();
     this.secondResponse = 'none';
     this.driveAction = 'none';
   }
@@ -154,6 +162,33 @@ export class CdRom implements CdAudioSource {
     this.stopDrive();
     this.motorOn = disc !== null;
     this.shellOpen = true;
+    this.position = 0;
+  }
+
+  /**
+   * Changes discs while the console runs: the lid opens (the drive stops, and
+   * the status shows it open), and a second later closes on the new disc. The
+   * "lid open" status bit stays set until the game reads the status, which is
+   * how games notice a disc was changed.
+   */
+  swapDisc(disc: Disc, region: DiscRegion): void {
+    this.disc = null;
+    this.stopDrive();
+    this.motorOn = false;
+    this.shellOpen = true;
+    this.errorStat = 0;
+    this.queue.length = 0;
+    this.nextDisc = disc;
+    this.nextRegion = region;
+    this.sched.schedule(this.lidEvent, LID_OPEN_CYCLES);
+  }
+
+  private closeLid(): void {
+    if (!this.nextDisc) return;
+    this.disc = this.nextDisc;
+    this.region = this.nextRegion;
+    this.nextDisc = null;
+    this.motorOn = true;
     this.position = 0;
   }
 

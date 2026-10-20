@@ -28,6 +28,15 @@ export function titleFromFileName(name: string): string {
   return name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() || name;
 }
 
+/** A title without its disc number: "Final Fantasy VII (Disc 2)" → "final fantasy vii". */
+export function gameName(title: string): string {
+  return title
+    .replace(/[([]?\b(disc|disk|cd)\s*\d+(\s*of\s*\d+)?[)\]]?/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 export type LoadedMedia =
   | { kind: 'disc'; disc: Disc; info: DiscInfo; title: string; details: string; id: string }
   | { kind: 'exe'; exe: PsExe; bytes: Uint8Array; title: string; details: string };

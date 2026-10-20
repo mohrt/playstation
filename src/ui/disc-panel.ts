@@ -8,8 +8,11 @@ export interface GameListing {
 }
 
 export interface DiscPanelCallbacks {
-  /** Files were dropped or chosen together (a .cue with its .bin files, an image, a program, a state, a card). */
-  onFiles(files: File[]): Promise<void>;
+  /**
+   * Files were dropped or chosen together (a .cue with its .bin files, an image, a program, a state, a card).
+   * `swap` is set when they were chosen with Swap disc.
+   */
+  onFiles(files: File[], swap?: boolean): Promise<void>;
   /** Downloads one of the free games and puts it in. */
   onGame(index: number): Promise<void>;
   onEject(): void;
@@ -51,11 +54,21 @@ export class DiscPanel {
       const index = Number(this.gamePicker.value);
       this.run(() => this.callbacks.onGame(index));
     });
-    root.querySelectorAll<HTMLButtonElement>('[data-action="choose"]').forEach((button) => button.addEventListener('click', () => this.fileInput.click()));
+    let swap = false;
+    root.querySelectorAll<HTMLButtonElement>('[data-action="choose"]').forEach((button) =>
+      button.addEventListener('click', () => {
+        swap = false;
+        this.fileInput.click();
+      }),
+    );
+    requireChild<HTMLButtonElement>(root, '[data-action="swap"]').addEventListener('click', () => {
+      swap = true;
+      this.fileInput.click();
+    });
     this.fileInput.addEventListener('change', () => {
       const files = [...(this.fileInput.files ?? [])];
       this.fileInput.value = '';
-      if (files.length) this.run(() => this.callbacks.onFiles(files));
+      if (files.length) this.run(() => this.callbacks.onFiles(files, swap));
     });
     requireChild<HTMLButtonElement>(root, '[data-action="eject"]').addEventListener('click', () => {
       this.callbacks.onEject();

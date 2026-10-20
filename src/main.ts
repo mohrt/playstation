@@ -3,7 +3,7 @@ import { fetchGame, loadGameManifest, type BundledGame } from './games';
 import { ControllerInput } from './io/controllers';
 import { GamepadManager, padName, readGamepad } from './io/gamepad-input';
 import { KeyboardInput } from './io/keyboard-input';
-import { fileKind, STATE_EXTENSION } from './media';
+import { fileKind, gameName, STATE_EXTENSION, titleFromFileName } from './media';
 import type { ConsoleStatus, FromWorker, ToWorker } from './protocol';
 import { SCREEN_ASPECT } from './render/screen';
 import { formattedCard } from './sio/memory-card';
@@ -126,7 +126,8 @@ async function main(): Promise<void> {
           return;
         case 'media-loaded':
           discPanel.showMedia(message.title, message.details);
-          audio?.flush();
+          if (message.swapped) discPanel.showMessage(`Discs swapped: ${message.title} is in, without restarting.`, true);
+          else audio?.flush();
           return;
         case 'memory-card':
           cardData[message.slot] = message.data;
@@ -202,7 +203,7 @@ async function main(): Promise<void> {
       discPanel.showMessage(`Memory card ${slot + 1} replaced with ${file.name}.`, true);
     };
 
-    const onFiles = async (files: File[]) => {
+    const onFiles = async (files: File[], swap = false) => {
       const state = files.find((file) => fileKind(file.name) === 'state');
       if (state) {
         await loadState(new Uint8Array(await state.arrayBuffer()));
@@ -219,7 +220,11 @@ async function main(): Promise<void> {
         await useBiosImage(new Uint8Array(await bios.arrayBuffer()));
         return;
       }
-      post({ type: 'media', files });
+      // Another disc of the game that's running goes in without a restart, as on the console.
+      const disc = files.find((file) => fileKind(file.name) === 'disc');
+      const current = consoleStatus?.kind === 'disc' ? consoleStatus.title : null;
+      const sameGame = disc && current !== null && gameName(titleFromFileName(disc.name)) === gameName(current) && titleFromFileName(disc.name) !== current;
+      post({ type: 'media', files, swap: swap || !!sameGame });
     };
 
     // --- Panels -------------------------------------------------------------------------

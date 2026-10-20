@@ -68,9 +68,13 @@ async function handle(message: ToWorker): Promise<void> {
       try {
         const media = loadMedia(message.files);
         if (message.title) media.title = message.title;
-        emu.insert(media);
-        lastTty = emu.tty.length;
-        send({ type: 'media-loaded', title: media.title, details: media.details, kind: media.kind });
+        const swapped = message.swap === true && media.kind === 'disc' && emu.hasDisc && emu.canRun;
+        if (swapped) emu.swap(media);
+        else {
+          emu.insert(media);
+          lastTty = emu.tty.length;
+        }
+        send({ type: 'media-loaded', title: media.title, details: media.details, kind: media.kind, swapped });
       } catch (error) {
         send({ type: 'error', message: errorText(error), context: 'media' });
       }

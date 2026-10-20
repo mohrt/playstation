@@ -107,6 +107,16 @@ export class Emulator {
     this.powerOn();
   }
 
+  /** Changes discs without restarting (the next disc of a multi-disc game). */
+  swap(media: LoadedMedia & { kind: 'disc' }): void {
+    this.media = media;
+    this.machine.cdrom.swapDisc(media.disc, media.info.region);
+  }
+
+  get hasDisc(): boolean {
+    return this.media?.kind === 'disc';
+  }
+
   powerOn(): void {
     if (this.media?.kind === 'exe') this.machine.setExe(this.media.exe);
     this.machine.powerOn();

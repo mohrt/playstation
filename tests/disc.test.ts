@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Disc, discInfo, LEAD_IN, MemorySource, SECTOR_SIZE } from '../src/disc/disc';
+import { gameName } from '../src/media';
 
 /** A raw sector whose data bytes all hold `fill` (and whose first byte says which sector it is). */
 function rawSector(lba: number, fill: number): Uint8Array {
@@ -88,6 +89,12 @@ describe('disc images', () => {
     expect(out[18]).toBe(0x08);
     expect(String.fromCharCode(...out.subarray(25, 30))).toBe('CD001');
     expect(discInfo(disc)).toEqual({ bootFile: 'SLES_123.45', serial: 'SLES-12345', region: 'pal' });
+  });
+
+  it('recognises other discs of the same game by name', () => {
+    expect(gameName('Final Fantasy VII (Disc 2)')).toBe(gameName('Final Fantasy VII (Disc 1)'));
+    expect(gameName('Metal Gear Solid [Disc 2 of 2]')).toBe('metal gear solid');
+    expect(gameName('Ridge Racer')).not.toBe(gameName('Ridge Racer Revolution'));
   });
 
   it('takes a raw .bin as one data track', () => {

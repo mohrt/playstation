@@ -46,6 +46,7 @@ const SKIPPED_FIELDS = new Set([
   'scratch8',
   'scratch16',
   'disc',
+  'nextDisc',
   'memory',
   'cards',
   'framebuffer',
