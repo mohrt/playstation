@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Irq } from '../src/irq';
 import { PlayStation } from '../src/playstation';
+import { GAUSS } from '../src/spu/gauss';
 import { CYCLES_PER_SAMPLE } from '../src/spu/spu';
 
 const SPU = 0x1f801c00;
@@ -59,6 +60,15 @@ describe('SPU', () => {
     m.run(CYCLES_PER_SAMPLE * 100);
     expect(m.irq.stat & (1 << Irq.Spu)).not.toBe(0);
     expect(bus.read16(SPU + 0x1ae) & 0x40).toBe(0x40);
+  });
+
+  it("interpolates with the hardware's Gaussian table, whose four weights sum to 0x7f7f..0x7f81", () => {
+    for (let i = 0; i < 256; i++) {
+      const sum = GAUSS[i] + GAUSS[0xff - i] + GAUSS[0x100 + i] + GAUSS[0x1ff - i];
+      expect(sum).toBeGreaterThanOrEqual(0x7f7f);
+      expect(sum).toBeLessThanOrEqual(0x7f81);
+    }
+    expect([GAUSS[0], GAUSS[0x100], GAUSS[0x1ff]]).toEqual([-1, 0x1307, 0x59b3]);
   });
 
   it('moves sound RAM through the transfer FIFO and DMA', () => {

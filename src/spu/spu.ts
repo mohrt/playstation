@@ -1,5 +1,6 @@
 import { Irq, type Interrupts } from '../irq';
 import { TimedEvent, type Scheduler } from '../scheduler';
+import { GAUSS } from './gauss';
 
 /** The SPU makes one stereo sample every 768 CPU cycles: 44.1 kHz. */
 export const CYCLES_PER_SAMPLE = 768;
@@ -579,21 +580,20 @@ export class Spu {
   }
 
   /**
-   * The voice's sample at its current position, interpolated over the newest
-   * four samples (Catmull-Rom in place of the hardware's Gaussian table).
+   * The voice's sample at its current position: the newest four samples
+   * weighted by the hardware's Gaussian table (whose weights never sum past
+   * 0x8000, so the result can't overflow).
    */
   private sampleAt(voice: Voice): number {
     const index = voice.counter >> 12;
-    const t = (voice.counter & 0xfff) / 0x1000;
-    const at = (i: number) => (i >= 0 ? voice.samples[i] : voice.history[3 + i]);
-    const s0 = at(index - 3);
-    const s1 = at(index - 2);
-    const s2 = at(index - 1);
-    const s3 = at(index);
-    const a = -0.5 * s0 + 1.5 * s1 - 1.5 * s2 + 0.5 * s3;
-    const b = s0 - 2.5 * s1 + 2 * s2 - 0.5 * s3;
-    const c = -0.5 * s0 + 0.5 * s2;
-    return clamp16(Math.round(((a * t + b) * t + c) * t + s1));
+    const i = (voice.counter >> 4) & 0xff;
+    const at = (n: number) => (n >= 0 ? voice.samples[n] : voice.history[3 + n]);
+    return (
+      ((GAUSS[0xff - i] * at(index - 3)) >> 15) +
+      ((GAUSS[0x1ff - i] * at(index - 2)) >> 15) +
+      ((GAUSS[0x100 + i] * at(index - 1)) >> 15) +
+      ((GAUSS[i] * at(index)) >> 15)
+    );
   }
 
   private stepNoise(): void {
