@@ -26,6 +26,7 @@ export class ControllerInput {
     let rightDistance = 0;
     for (const state of this.sources.values()) {
       merged.buttons |= state.buttons;
+      if (state.aim !== undefined) merged.aim = state.aim;
       const left = Math.abs(state.leftX - 128) + Math.abs(state.leftY - 128);
       if (left > leftDistance) {
         leftDistance = left;

@@ -17,6 +17,8 @@ It starts with [OpenBIOS](https://github.com/grumpycoders/pcsx-redux/tree/main/s
 The toolbar has pause, the console's Reset button, power cycle and full screen, and what is plugged into the controller ports:
 
 - **Digital pad** or **DualShock**, for each port. A DualShock starts in digital mode, as the real one does; games that use the sticks switch it to analog themselves, and **Analog** (player 1's Analog button) switches it by hand for the others. Games that vibrate the DualShock (Crash Bandicoot: Warped, Metal Gear Solid and so on) rumble your gamepad, in browsers that support it (Chrome and Edge).
+- **GunCon (mouse)**: Namco's light gun, for Time Crisis, Point Blank, Die Hard Trilogy 2 and the like. It aims wherever the mouse (or a finger) is on the screen: the left button is the trigger, right is A and middle is B (Enter, X and C on the keyboard too). Shift-click shoots off the screen, which is how most of these games reload. Games calibrate the gun themselves, by asking you to shoot a target.
+- **Mouse**: the PlayStation Mouse, for games such as Discworld, Command & Conquer and Lemmings. Click the screen and it captures the pointer; Esc lets it go.
 
 Save states keep the whole console in the browser, except the disc: a state remembers which disc it was made with (by its serial) and asks for that disc to be put in before it is loaded. States of programs dropped as an `.exe` carry the program. They can be exported and imported as `.psxstate` files.
 

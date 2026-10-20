@@ -13,6 +13,8 @@ export type ToWorker =
   | { type: 'pads'; pads: PadState[] }
   | { type: 'pad-types'; types: PadType[] }
   | { type: 'analog'; port: number }
+  /** PlayStation Mouse movement since the last message. */
+  | { type: 'mouse-motion'; port: number; dx: number; dy: number }
   | { type: 'bios'; userBios: Uint8Array | null; useUserBios: boolean }
   | { type: 'memory-card'; slot: number; data: Uint8Array }
   | { type: 'save-state' }

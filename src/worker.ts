@@ -119,6 +119,9 @@ async function handle(message: ToWorker): Promise<void> {
     case 'sound':
       emu.soundEnabled = message.enabled;
       return;
+    case 'mouse-motion':
+      emu.machine.sio.pads[message.port]?.move(message.dx, message.dy);
+      return;
     case 'fast-boot':
       emu.machine.fastBoot = message.enabled;
       return;

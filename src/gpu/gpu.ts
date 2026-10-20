@@ -1,5 +1,5 @@
 import { Irq, type Interrupts } from '../irq';
-import { TimedEvent, type Scheduler } from '../scheduler';
+import { CPU_HZ, TimedEvent, type Scheduler } from '../scheduler';
 import type { Timers } from '../timers';
 import { DRAW_RAW, DRAW_SEMI, DRAW_SHADED, DRAW_TEXTURED, Rasterizer, VRAM_HEIGHT, VRAM_WIDTH, vertex, type Vertex } from './raster';
 
@@ -12,6 +12,9 @@ const TIMING = {
 };
 /** The GPU's clock is 11/7 of the CPU's. */
 const GPU_TO_CPU = 7 / 11;
+/** The GPU's video clock, and the GunCon's counter clock. */
+const GPU_HZ = CPU_HZ / GPU_TO_CPU;
+const GUN_CLOCK_HZ = 8_000_000;
 /** Horizontal resolutions (GP1(08h) bits 0-1, or 368 with bit 6) and their dot clock dividers. */
 const HRES = [
   { width: 256, divider: 10 },
@@ -626,6 +629,17 @@ export class Gpu {
   }
 
   // --- Display ----------------------------------------------------------------------
+
+  /**
+   * Where the beam is when it draws a point of the shown picture (0-1 across and
+   * down), as a GunCon sees it: X in 8 MHz ticks from the start of the line, Y in lines.
+   */
+  lightGunPosition(x: number, y: number): { x: number; y: number } {
+    const doubled = this.interlaced && (this.displayMode & 0x04) !== 0;
+    const lines = doubled ? this.frameHeight / 2 : this.frameHeight;
+    const ticks = this.hRangeStart + x * this.frameWidth * this.hres.divider;
+    return { x: Math.round((ticks * GUN_CLOCK_HZ) / GPU_HZ), y: this.vRangeStart + Math.min(lines - 1, Math.floor(y * lines)) };
+  }
 
   /** Converts the displayed part of VRAM to RGBA for the screen. */
   private scanOut(): void {

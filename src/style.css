@@ -41,6 +41,11 @@ main {
   background: #000;
 }
 
+#screen.aiming {
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .screen-frame:fullscreen {
   align-items: center;
   background: #000;

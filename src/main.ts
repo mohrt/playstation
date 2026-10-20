@@ -2,6 +2,7 @@ import { AudioOutput } from './audio/audio-output';
 import { fetchGame, loadGameManifest, type BundledGame } from './games';
 import { ControllerInput } from './io/controllers';
 import { GamepadManager, padName, readGamepad, RumbleOutput } from './io/gamepad-input';
+import { PointerInput } from './io/pointer-input';
 import { KeyboardInput } from './io/keyboard-input';
 import { fileKind, gameName, STATE_EXTENSION, titleFromFileName } from './media';
 import type { ConsoleStatus, FromWorker, Rumble, ToWorker } from './protocol';
@@ -32,7 +33,17 @@ function requireElement<T extends HTMLElement>(selector: string): T {
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'playstation';
 
-const padLabel = (type: PadType, analog: boolean) => (type === 'dualshock' ? `DualShock${analog ? ' (analog)' : ''}` : 'digital pad');
+const controlsHint = (type: PadType) => {
+  if (type === 'guncon') return 'Aim with the mouse: left button fires, right is A, middle is B, Shift-click reloads';
+  if (type === 'mouse') return 'Click the screen to use the mouse; Esc lets it go';
+  return 'Arrows, S Z X C and Enter play';
+};
+const padLabel = (type: PadType, analog: boolean) => {
+  if (type === 'dualshock') return `DualShock${analog ? ' (analog)' : ''}`;
+  if (type === 'guncon') return 'GunCon';
+  if (type === 'mouse') return 'mouse';
+  return 'digital pad';
+};
 
 async function loadOpenBios(): Promise<Uint8Array> {
   const response = await fetch(`${import.meta.env.BASE_URL}bios/openbios.bin`);
@@ -96,6 +107,8 @@ async function main(): Promise<void> {
     let fastForward = false;
     let waitingForFrame = false;
     let rumble: Rumble[] = [];
+    // Set up with the other inputs, once the toolbar knows the pad types.
+    let pointer: PointerInput;
     let pendingState: { resolve: (value: { bytes: Uint8Array; title: string }) => void; reject: (error: Error) => void } | null = null;
     let pendingLoad: { resolve: () => void; reject: (error: Error) => void } | null = null;
     // Keyboard focus goes back to the game without scrolling the page to it.
@@ -107,7 +120,7 @@ async function main(): Promise<void> {
       const parts = [s.title ?? 'No disc', s.bios === 'OpenBIOS' ? 'OpenBIOS' : 'your BIOS'];
       s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}`));
       if (speed < 0.95) parts.push(`running at ${Math.round(speed * 100)}% speed`);
-      status.textContent = `${parts.join(' · ')} · Arrows, S Z X C and Enter play`;
+      status.textContent = `${parts.join(' · ')} · ${controlsHint(s.pads[0]?.type ?? 'digital')}`;
       screenFrame.classList.toggle('empty', s.title === null);
       toolbar.setCanSave(s.title !== null);
       toolbar.setAnalog(s.pads[0]?.type === 'dualshock', s.pads[0]?.analog ?? false);
@@ -280,7 +293,10 @@ async function main(): Promise<void> {
         }
         void screenFrame.requestFullscreen().then(focusScreen);
       },
-      onPadTypes: (types) => post({ type: 'pad-types', types }),
+      onPadTypes: (types) => {
+        post({ type: 'pad-types', types });
+        pointer.setPadTypes(types);
+      },
       onAnalog: () => post({ type: 'analog', port: 0 }),
       onSaveState: async () => {
         const { bytes, title } = await requestState();
@@ -319,6 +335,8 @@ async function main(): Promise<void> {
 
     // --- Inputs -------------------------------------------------------------------------
     const controllers = [new ControllerInput(), new ControllerInput()];
+    pointer = new PointerInput(canvas, controllers);
+    pointer.setPadTypes(toolbar.padTypes);
     new KeyboardInput(controllers[0], {
       onPause: () => toolbar.setPaused(!toolbar.paused),
       onFastForward: (held) => {
@@ -379,6 +397,8 @@ async function main(): Promise<void> {
           rumbleOutput.update(gamepad, rumble[player] ?? STILL, now);
         } else controllers[player].clear('gamepad');
       }
+      const motion = pointer.takeMotion();
+      if (motion) post({ type: 'mouse-motion', ...motion });
       const states: PadState[] = controllers.map((controller) => controller.state);
       const key = JSON.stringify(states);
       if (key !== lastPads) {

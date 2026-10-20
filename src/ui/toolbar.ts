@@ -41,7 +41,8 @@ function requireChild<T extends Element>(root: Element, selector: string): T {
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
-const padType = (select: HTMLSelectElement): PadType => (select.value === 'dualshock' ? 'dualshock' : 'digital');
+const PAD_TYPES: readonly PadType[] = ['digital', 'dualshock', 'guncon', 'mouse'];
+const padType = (select: HTMLSelectElement): PadType => PAD_TYPES.find((type) => type === select.value) ?? 'digital';
 
 /** The row of console controls under the screen. */
 export function attachToolbar(root: HTMLElement, callbacks: ToolbarCallbacks): Toolbar {

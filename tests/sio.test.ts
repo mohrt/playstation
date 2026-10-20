@@ -3,7 +3,7 @@ import { RumbleOutput } from '../src/io/gamepad-input';
 import { Irq } from '../src/irq';
 import { PlayStation } from '../src/playstation';
 import { formattedCard, MEMORY_CARD_SIZE } from '../src/sio/memory-card';
-import { idlePad, PadButton } from '../src/sio/pad';
+import { GunButton, idlePad, MouseButton, PadButton } from '../src/sio/pad';
 import { readMemoryCardFile } from '../src/storage/memory-cards';
 
 const JOY_DATA = 0x1f801040;
@@ -72,6 +72,42 @@ describe('controllers and memory cards', () => {
     expect([pad.smallMotor, pad.largeMotor]).toEqual([0xff, 0xc0]);
     exchange(m, 0, [0x01, 0x42, 0x00, 0x00, 0x00]);
     expect([pad.smallMotor, pad.largeMotor]).toEqual([0, 0]);
+  });
+
+  it('aims a GunCon: ID 63h, the trigger, then where the beam is (or 0001h, 000Ah off the screen)', () => {
+    const m = machine();
+    const pad = m.sio.pads[0];
+    pad.type = 'guncon';
+    pad.state = { ...idlePad(), buttons: GunButton.Trigger, aim: { x: 0.5, y: 0.5 } };
+    const { replies } = exchange(m, 0, [0x01, 0x42, 0, 0, 0, 0, 0, 0, 0]);
+    expect(replies.slice(1, 3)).toEqual([0x63, 0x5a]);
+    expect((replies[3] | (replies[4] << 8)) & GunButton.Trigger).toBe(0);
+    const x = replies[5] | (replies[6] << 8);
+    const y = replies[7] | (replies[8] << 8);
+    expect({ x, y }).toEqual(m.gpu.lightGunPosition(0.5, 0.5));
+    expect(x).toBeGreaterThan(200);
+    expect(x).toBeLessThan(340);
+    expect(y).toBe(0x10 + 120);
+    pad.state = { ...idlePad(), aim: null };
+    const off = exchange(m, 0, [0x01, 0x42, 0, 0, 0, 0, 0, 0, 0]).replies;
+    expect(off.slice(5)).toEqual([0x01, 0x00, 0x0a, 0x00]);
+  });
+
+  it('reports PlayStation Mouse movement 128 counts at most per poll', () => {
+    const m = machine();
+    const pad = m.sio.pads[0];
+    pad.type = 'mouse';
+    pad.state = { ...idlePad(), buttons: MouseButton.Left };
+    pad.move(300, -5);
+    const polls = [0, 1, 2].map(() => exchange(m, 0, [0x01, 0x42, 0, 0, 0, 0, 0]).replies);
+    expect(polls[0].slice(1, 3)).toEqual([0x12, 0x5a]);
+    expect(((polls[0][3] | (polls[0][4] << 8)) & MouseButton.Left) === 0).toBe(true);
+    const signed = (byte: number) => (byte << 24) >> 24;
+    expect(polls.map((reply) => [signed(reply[5]), signed(reply[6])])).toEqual([
+      [127, -5],
+      [127, 0],
+      [46, 0],
+    ]);
   });
 
   it('replays rumble on a gamepad while the motors run, and stops it after', () => {

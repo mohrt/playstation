@@ -70,6 +70,7 @@ export class PlayStation {
       if ((table === 0xa0 && fn === 0x3c) || (table === 0xb0 && fn === 0x3d)) this.onTty(this.cpu.r[4] & 0xff);
     };
     this.cpu.onHook = () => this.enterShell();
+    for (const pad of this.sio.pads) pad.beamAt = (x, y) => this.gpu.lightGunPosition(x, y);
   }
 
   get clockHz(): number {

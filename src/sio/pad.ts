@@ -18,7 +18,7 @@ export const PadButton = {
   Square: 1 << 15,
 } as const;
 
-export type PadType = 'digital' | 'dualshock';
+export type PadType = 'digital' | 'dualshock' | 'guncon' | 'mouse';
 
 /** What a player is pressing: buttons and, on a DualShock, the sticks (0-255, 128 centred). */
 export interface PadState {
@@ -27,7 +27,16 @@ export interface PadState {
   leftY: number;
   rightX: number;
   rightY: number;
+  /** Where a light gun points: 0-1 across and down the picture, or null when it points off the screen. */
+  aim?: { x: number; y: number } | null;
 }
+
+/** The GunCon's buttons, in the bits a pad reports Start, circle and cross in. */
+export const GunButton = { A: PadButton.Start, Trigger: PadButton.Circle, B: PadButton.Cross } as const;
+/** The PlayStation Mouse's buttons, in the bits a pad reports L1 and R1 in. */
+export const MouseButton = { Right: PadButton.L1, Left: PadButton.R1 } as const;
+/** What the GunCon reports when it sees no picture. */
+const GUN_OFF_SCREEN = { x: 0x0001, y: 0x000a };
 
 export const idlePad = (): PadState => ({ buttons: 0, leftX: 128, leftY: 128, rightX: 128, rightY: 128 });
 
@@ -51,12 +60,24 @@ export class Pad {
   smallMotor = 0;
   largeMotor = 0;
   state: PadState = idlePad();
+  /** Converts a light gun's aim (0-1 across the picture) to the beam position it would see (set by the console). */
+  beamAt: ((x: number, y: number) => { x: number; y: number }) | null = null;
+  /** Mouse movement not yet reported. */
+  private motionX = 0;
+  private motionY = 0;
+
+  /** Adds mouse movement, reported (128 counts at most per axis) at the next polls. */
+  move(dx: number, dy: number): void {
+    this.motionX += dx;
+    this.motionY += dy;
+  }
 
   reset(): void {
     this.config = false;
     this.analog = this.type === 'dualshock' && this.analog;
     this.rumbleMap.fill(0xff);
     this.smallMotor = this.largeMotor = 0;
+    this.motionX = this.motionY = 0;
     this.deselect();
   }
 
@@ -89,15 +110,37 @@ export class Pad {
   }
 
   private id(): number {
+    if (this.type === 'guncon') return 0x63;
+    if (this.type === 'mouse') return 0x12;
     if (this.config) return 0xf3;
     return this.analog ? 0x73 : 0x41;
   }
 
   private report(): number[] {
+    if (this.type === 'guncon') return this.gunReport();
+    if (this.type === 'mouse') return this.mouseReport();
     const buttons = ~this.state.buttons & 0xffff;
     const bytes = [buttons & 0xff, buttons >> 8];
     if (this.analog || this.config) bytes.push(this.state.rightX, this.state.rightY, this.state.leftX, this.state.leftY);
     return bytes;
+  }
+
+  /** Trigger, A and B, then where the gun sees the beam: X in 8 MHz ticks into the line, Y in lines. */
+  private gunReport(): number[] {
+    const buttons = ~(this.state.buttons & (GunButton.A | GunButton.Trigger | GunButton.B)) & 0xffff;
+    const aim = this.state.aim;
+    const { x, y } = aim && this.beamAt ? this.beamAt(aim.x, aim.y) : GUN_OFF_SCREEN;
+    return [buttons & 0xff, buttons >> 8, x & 0xff, (x >> 8) & 0xff, y & 0xff, (y >> 8) & 0xff];
+  }
+
+  /** The two buttons, then the movement since the last poll (signed, at most 128 counts). */
+  private mouseReport(): number[] {
+    const buttons = ~(this.state.buttons & (MouseButton.Left | MouseButton.Right)) & 0xffff;
+    const dx = Math.max(-128, Math.min(127, Math.round(this.motionX)));
+    const dy = Math.max(-128, Math.min(127, Math.round(this.motionY)));
+    this.motionX -= dx;
+    this.motionY -= dy;
+    return [buttons & 0xff, buttons >> 8, dx & 0xff, dy & 0xff];
   }
 
   /** The reply to a command, starting with the pad's ID byte. */
