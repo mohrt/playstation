@@ -33,6 +33,8 @@ const LONG_SEEK_CYCLES = Math.round(CPU_HZ * 0.3);
 /** Starting again from pause, at double speed (twice as long at single speed). */
 const PAUSED_RESTART_CYCLES = 1_237_952;
 const SPIN_UP_CYCLES = CPU_HZ;
+/** The longest seek with fast loading on (30 ms). */
+const FAST_SEEK_MAX_CYCLES = 1_000_000;
 /** How long the lid stays open when discs are swapped. */
 const LID_OPEN_CYCLES = CPU_HZ;
 
@@ -63,6 +65,8 @@ const SECTOR_BUFFERS = 4;
  */
 export class CdRom implements CdAudioSource {
   disc: Disc | null = null;
+  /** Seeks in a few milliseconds, however far, instead of as long as the drive would take. */
+  fastSeeks = false;
   region: DiscRegion = 'ntsc-u';
   private shellOpen = false;
 
@@ -598,6 +602,7 @@ export class CdRom implements CdAudioSource {
    * again from pause takes a while, and a stopped motor spins up first.
    */
   private seekCycles(target: number): number {
+    if (this.fastSeeks) return MIN_SEEK_CYCLES + Math.min(FAST_SEEK_MAX_CYCLES, Math.abs(target - this.position) * 20);
     let cycles = 0;
     let from = this.position;
     if (!this.motorOn) {

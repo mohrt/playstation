@@ -1,6 +1,6 @@
 // Runs a disc (or PS-EXE) headless and saves screenshots, for checking games without a browser.
 //   npm run probe -- game.cue [--frames 3600] [--shot 600] [--press 2400:start,2700:cross] [--bios file] [--out /tmp/probe] [--fast-boot]
-//   [--swap frame:disc2.cue] [--dualshock] [--tty] [--cd frame] [--sio frame] [--spu] [--gpu]
+//   [--swap frame:disc2.cue] [--dualshock] [--tty] [--cd frame] [--sio frame] [--spu] [--gpu] [--fast-seeks]
 // Presses hold a button for 8 frames from the given frame. Buttons are named as in PadButton (start, cross, up, l1...).
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -99,6 +99,7 @@ machine.onTty = (char) => {
   }
 };
 machine.fastBoot = args.includes('--fast-boot');
+machine.cdrom.fastSeeks = args.includes('--fast-seeks');
 machine.powerOn();
 // --resume state.json.gz continues from a state saved with --save-at frame:file (frames then count from it).
 const resume = option('resume', '');

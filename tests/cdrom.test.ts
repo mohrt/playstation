@@ -3,6 +3,7 @@ import { XaDecoder } from '../src/cdrom/xa';
 import { Disc, MemorySource, SECTOR_SIZE } from '../src/disc/disc';
 import { Irq } from '../src/irq';
 import { PlayStation } from '../src/playstation';
+import { CPU_HZ } from '../src/scheduler';
 
 const CD = 0x1f801800;
 
@@ -33,8 +34,8 @@ function testDisc(): Disc {
 class Drive {
   readonly m = new PlayStation();
 
-  constructor() {
-    this.m.insertDisc(testDisc());
+  constructor(disc = testDisc()) {
+    this.m.insertDisc(disc);
     this.m.powerOn();
     this.m.irq.writeMask(1 << Irq.CdRom);
     this.m.bus.write8(CD, 1);
@@ -111,6 +112,22 @@ describe('CD-ROM controller', () => {
     const sample = new Int16Array(2);
     d.m.cdrom.nextSample(sample);
     expect(Array.from(sample)).toEqual([0x1000, -0x1000]);
+  });
+
+  it('seeks for as long as the drive would, or in a few milliseconds with fast loading', () => {
+    // Twelve minutes of silence before track 2 puts it far out on the disc.
+    const far = Disc.fromCue('FILE "d.bin" BINARY\n TRACK 01 MODE2/2352\n  INDEX 01 00:00:00\n TRACK 02 AUDIO\n  PREGAP 12:00:00\n  INDEX 01 00:00:10\n', new Map([['d.bin', new MemorySource(new Uint8Array(20 * SECTOR_SIZE))]]));
+    const seekSeconds = (fast: boolean) => {
+      const d = new Drive(far);
+      d.m.cdrom.fastSeeks = fast;
+      d.command(0x02, [0x10, 0x00, 0x00]); // Setloc 10:00:00
+      const start = d.m.sched.now;
+      expect(d.command(0x16)[0]).toBe(3); // SeekP
+      expect(d.next(40_000_000)[0]).toBe(2);
+      return (d.m.sched.now - start) / CPU_HZ;
+    };
+    expect(seekSeconds(false)).toBeGreaterThan(0.4);
+    expect(seekSeconds(true)).toBeLessThan(0.05);
   });
 
   it('swaps discs with the lid opening and closing, without a restart', () => {

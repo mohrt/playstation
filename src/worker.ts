@@ -126,6 +126,9 @@ async function handle(message: ToWorker): Promise<void> {
       emu.setMultitap(message.plugged);
       sendStatus();
       return;
+    case 'fast-seeks':
+      emu.machine.cdrom.fastSeeks = message.enabled;
+      return;
     case 'fast-boot':
       emu.machine.fastBoot = message.enabled;
       return;

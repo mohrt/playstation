@@ -20,7 +20,7 @@ import { attachToolbar } from './ui/toolbar';
 import { OnScreenPad } from './ui/touch-pad';
 
 /** Form fields whose values are remembered between visits. */
-const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'multitap', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot'];
+const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'multitap', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot', 'fast-seeks'];
 const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
 /** Two ports, or five players with a Multitap in port 1 (four on it, the fifth on port 2). */
 const MAX_PLAYERS = 5;
@@ -388,6 +388,11 @@ async function main(): Promise<void> {
     const applyFastBoot = () => post({ type: 'fast-boot', enabled: fastBoot.checked });
     fastBoot.addEventListener('change', applyFastBoot);
     applyFastBoot();
+
+    const fastSeeks = requireElement<HTMLInputElement>('input[name="fast-seeks"]');
+    const applyFastSeeks = () => post({ type: 'fast-seeks', enabled: fastSeeks.checked });
+    fastSeeks.addEventListener('change', applyFastSeeks);
+    applyFastSeeks();
     if (!audio) {
       sound.disabled = volume.disabled = true;
       soundHint.textContent = 'Sound is not supported in this browser';

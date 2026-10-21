@@ -48,6 +48,7 @@ const SKIPPED_FIELDS = new Set([
   'disc',
   'nextDisc',
   'fastBoot',
+  'fastSeeks',
   'plugged',
   'memory',
   'cards',

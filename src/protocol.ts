@@ -21,6 +21,7 @@ export type ToWorker =
   | { type: 'load-state'; bytes: Uint8Array }
   | { type: 'sound'; enabled: boolean }
   | { type: 'fast-boot'; enabled: boolean }
+  | { type: 'fast-seeks'; enabled: boolean }
   /** A Multitap in port 1. */
   | { type: 'multitap'; plugged: boolean };
 
