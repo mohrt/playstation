@@ -1,6 +1,6 @@
 // Runs a disc (or PS-EXE) headless and saves screenshots, for checking games without a browser.
 //   npm run probe -- game.cue [--frames 3600] [--shot 600] [--press 2400:start,2700:cross] [--bios file] [--out /tmp/probe] [--fast-boot]
-//   [--swap frame:disc2.cue] [--dualshock] [--tty] [--cd frame] [--sio frame] [--spu]
+//   [--swap frame:disc2.cue] [--dualshock] [--tty] [--cd frame] [--sio frame] [--spu] [--gpu]
 // Presses hold a button for 8 frames from the given frame. Buttons are named as in PadButton (start, cross, up, l1...).
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -167,6 +167,7 @@ if (args.includes('--dualshock')) {
   machine.sio.pads[0].analog = true;
 }
 let strongest = [0, 0];
+let drawsOverShown = 0;
 let rumbleFrames = 0;
 for (let frame = 1; frame <= frames; frame++) {
   let buttons = 0;
@@ -177,6 +178,11 @@ for (let frame = 1; frame <= frames; frame++) {
     const media = discMedia(openDisc(swapPath), basename(swapPath));
     if (media.kind === 'disc') machine.cdrom.swapDisc(media.disc, media.info.region);
     console.log(`f${frame}: swapped in ${basename(swapPath)}`);
+  }
+  {
+    const gpu = machine.gpu as unknown as { displayMode: number; displayY: number; drawTop: number; drawBottom: number; frameHeight: number };
+    const shownBottom = gpu.displayY + gpu.frameHeight;
+    if ((gpu.displayMode & 0x24) === 0x24 && gpu.drawTop < shownBottom && gpu.drawBottom >= gpu.displayY) drawsOverShown++;
   }
   const { smallMotor, largeMotor } = machine.sio.pads[0];
   if (smallMotor || largeMotor) {
@@ -222,6 +228,13 @@ if (args.includes('--spu')) {
   console.log(`gpu frameCount ${machine.gpu.frameCount} after ${frames} runFrame calls; line ${machine.gpu.line} event ${gpuPrivate.lineEvent.time} fraction ${gpuPrivate.lineFraction} mode ${machine.gpu.displayMode.toString(16)}`);
   console.log(`timer event at ${timers.event.time}, now ${machine.sched.now}, lastSync ${timers.lastSync}, t2 pending ${timers.counters[2].pending} irqDone ${timers.counters[2].irqDone} waiting ${timers.counters[2].waiting}`);
   console.log(`irq mask ${machine.irq.mask.toString(16)} stat ${machine.irq.stat.toString(16)}; timers ${machine.timers.counters.map((t) => `count ${t.count.toString(16)} mode ${t.mode.toString(16)} target ${t.target.toString(16)}`).join(' | ')}`);
+}
+if (args.includes('--gpu')) {
+  const gpu = machine.gpu as unknown as { displayMode: number; texpage: number; displayX: number; displayY: number; drawLeft: number; drawTop: number; drawRight: number; drawBottom: number };
+  const interlaced = (gpu.displayMode & 0x24) === 0x24;
+  console.log(
+    `GPU: ${interlaced ? '480i' : 'progressive'}, draw to displayed area ${(gpu.texpage >> 10) & 1 ? 'allowed' : 'off'}, display at ${gpu.displayX},${gpu.displayY}, drawing area ${gpu.drawLeft},${gpu.drawTop}-${gpu.drawRight},${gpu.drawBottom}; frames drawing over the shown picture in 480i: ${drawsOverShown}`,
+  );
 }
 if (args.includes('--dualshock')) {
   const pad = machine.sio.pads[0] as unknown as { rumbleMap: number[]; analog: boolean };

@@ -26,6 +26,13 @@ const INIT_ACK_DELAY = 80_000;
 const GETID_DELAY = 0x4a00;
 const SECTOR_CYCLES = CPU_HZ / 75;
 const MIN_SEEK_CYCLES = 20_000;
+/** Sectors on a 72-minute disc, which the head crosses in about a second. */
+const DISC_SECTORS = 72 * 60 * 75;
+const LONG_SEEK_SECTORS = 2250;
+const LONG_SEEK_CYCLES = Math.round(CPU_HZ * 0.3);
+/** Starting again from pause, at double speed (twice as long at single speed). */
+const PAUSED_RESTART_CYCLES = 1_237_952;
+const SPIN_UP_CYCLES = CPU_HZ;
 /** How long the lid stays open when discs are swapped. */
 const LID_OPEN_CYCLES = CPU_HZ;
 
@@ -577,12 +584,31 @@ export class CdRom implements CdAudioSource {
   private seek(next: DriveAction): void {
     const target = this.setlocPending ? this.setlocTarget : this.position;
     this.setlocPending = false;
-    const distance = Math.abs(target - this.position);
+    const cycles = this.seekCycles(target);
     this.position = target;
     this.motorOn = true;
     this.state = 'seeking';
     this.driveAction = next;
-    this.sched.schedule(this.driveEvent, MIN_SEEK_CYCLES + Math.min(1_000_000, distance * 20));
+    this.sched.schedule(this.driveEvent, cycles);
+  }
+
+  /**
+   * How long a seek takes, after Mednafen's model of the drive: the head crosses
+   * the whole disc in a second, long jumps take 0.3 s more to settle, starting
+   * again from pause takes a while, and a stopped motor spins up first.
+   */
+  private seekCycles(target: number): number {
+    let cycles = 0;
+    let from = this.position;
+    if (!this.motorOn) {
+      from = 0;
+      cycles += SPIN_UP_CYCLES;
+    }
+    const distance = Math.abs(target - from);
+    cycles += Math.max(MIN_SEEK_CYCLES, Math.floor((distance * CPU_HZ) / DISC_SECTORS));
+    if (distance >= LONG_SEEK_SECTORS) cycles += LONG_SEEK_CYCLES;
+    else if (this.state === 'idle') cycles += PAUSED_RESTART_CYCLES * (this.mode & MODE_DOUBLE_SPEED ? 1 : 2);
+    return cycles;
   }
 
   private startReading(): void {

@@ -58,7 +58,7 @@ Tested so far, booting through OpenBIOS:
 
 They run at full speed in Chrome with headroom to spare: in Node the heaviest (Final Fantasy VII's field scenes, Metal Gear Solid, Gran Turismo) emulate 105-115 frames a second, twice what PAL needs. Fourteen retail BIOSes (Japanese, American and European, SCPH-1000 to SCPH-7502 and the PS one's SCPH-101) show the Sony logo and reach their menu, and boot these games through the PlayStation logo.
 
-What isn't there yet: Konami's Justifier light gun, a Multitap in port 2 or memory cards on a Multitap, and the PocketStation. The CD-ROM's timings are averages rather than the drive's exact seek times. There's no recompiler: the interpreter keeps up without one.
+What isn't there yet: Konami's Justifier light gun, a Multitap in port 2 or memory cards on a Multitap, and the PocketStation. CD seeks take as long as Mednafen's model of the drive says (the head's travel, settling after long jumps, restarting from pause, spinning up), so loading takes about as long as on a console; OpenBIOS re-reads the disc's directory each time it opens a file, which makes booting games whose program is far out on the disc (Resident Evil) a few seconds slower than with Sony's BIOS. Interlaced 480-line pictures are drawn whole every frame, rather than one field at a time as the GPU does, which keeps moving pictures free of combing. There's no recompiler: the interpreter keeps up without one.
 
 ## Accuracy
 

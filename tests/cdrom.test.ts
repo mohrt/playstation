@@ -106,7 +106,8 @@ describe('CD-ROM controller', () => {
     const d = new Drive();
     d.command(0x0c); // demute
     expect(d.command(0x03, [0x02])[0]).toBe(3);
-    d.m.run(2_000_000);
+    d.m.run(4_000_000); // the seek to track 2, starting from pause at single speed
+
     const sample = new Int16Array(2);
     d.m.cdrom.nextSample(sample);
     expect(Array.from(sample)).toEqual([0x1000, -0x1000]);
