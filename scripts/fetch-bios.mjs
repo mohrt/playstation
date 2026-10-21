@@ -8,7 +8,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const BASE = 'https://www.mirrorservice.org/sites/libreboot.org/release/stable/26.10rev3/roms/playstation';
+const BASE = 'https://www.mirrorservice.org/sites/libreboot.org/release/stable/26.10rev9/roms/playstation';
 const SHA256 = 'da0bf3d3e0bf75d4bea49c037f9d0639d75c3ff4a569659965e04b9809b707c5';
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'bios');
 const biosFile = join(outDir, 'openbios.bin');
