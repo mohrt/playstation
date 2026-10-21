@@ -140,6 +140,18 @@ describe('controllers and memory cards', () => {
     expect(m.sio.playerPads).toEqual([a, b, c, d, m.sio.pads[1]]);
   });
 
+  it('puts a Multitap in port 2 too, for the games that want it there', () => {
+    const m = machine();
+    m.sio.taps[1].plugged = true;
+    m.sio.taps[1].pads[0].state = { ...idlePad(), buttons: PadButton.Triangle };
+    expect(m.sio.playerPads).toEqual([m.sio.pads[0], ...m.sio.taps[1].slots]);
+    exchange(m, 1, [0x01, 0x42, 0x01, 0, 0, 0]);
+    const all = exchange(m, 1, [0x01, 0x42, 0x00, ...new Array<number>(32).fill(0)]).replies.slice(1);
+    expect(all.slice(0, 2)).toEqual([0x80, 0x5a]);
+    expect(all.slice(10, 14)).toEqual([0x41, 0x5a, 0xff, 0xef]);
+    expect(exchange(m, 0, [0x01, 0x42, 0, 0, 0]).replies[1]).toBe(0x41); // port 1 has its pad alone
+  });
+
   it('replays rumble on a gamepad while the motors run, and stops it after', () => {
     const effects: string[] = [];
     const gamepad = {

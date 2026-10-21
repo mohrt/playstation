@@ -22,8 +22,8 @@ export type ToWorker =
   | { type: 'sound'; enabled: boolean }
   | { type: 'fast-boot'; enabled: boolean }
   | { type: 'fast-seeks'; enabled: boolean }
-  /** A Multitap in port 1. */
-  | { type: 'multitap'; plugged: boolean };
+  /** A Multitap in port 0 or 1, or none (null). */
+  | { type: 'multitap'; port: number | null };
 
 /** The console's state, for the page's status line. */
 export interface ConsoleStatus {
@@ -33,7 +33,8 @@ export interface ConsoleStatus {
   details: string;
   bios: string;
   pads: { type: PadType; analog: boolean }[];
-  multitap: boolean;
+  /** The port with a Multitap in it, if any. */
+  multitap: number | null;
 }
 
 /** A DualShock's motors, 0-1: the large (strong) one and the small (weak) one. */

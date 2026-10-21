@@ -22,7 +22,7 @@ import { OnScreenPad } from './ui/touch-pad';
 /** Form fields whose values are remembered between visits. */
 const REMEMBERED_SETTINGS = ['pad1', 'pad2', 'multitap', 'show-pad', 'pad-player', 'sound', 'volume', 'fast-boot', 'fast-seeks'];
 const USE_OWN_BIOS_KEY = 'playstation-use-own-bios';
-/** Two ports, or five players with a Multitap in port 1 (four on it, the fifth on port 2). */
+/** Two ports, or five players with a Multitap (four on it, one on the other port). */
 const MAX_PLAYERS = 5;
 const STILL: Rumble = { strong: 0, weak: 0 };
 
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
       const s = consoleStatus;
       if (!s) return;
       const parts = [s.title ?? 'No disc', s.bios === 'OpenBIOS' ? 'OpenBIOS' : 'your BIOS'];
-      s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}${i === 0 && s.multitap ? ' on a Multitap' : ''}`));
+      s.pads.forEach((pad, i) => parts.push(`pad ${i + 1}: ${padLabel(pad.type, pad.analog)}${i === s.multitap ? ' on a Multitap' : ''}`));
       if (speed < 0.95) parts.push(`running at ${Math.round(speed * 100)}% speed`);
       status.textContent = `${parts.join(' · ')} · ${controlsHint(s.pads[0]?.type ?? 'digital')}`;
       screenFrame.classList.toggle('empty', s.title === null);
@@ -336,12 +336,14 @@ async function main(): Promise<void> {
 
     // --- Inputs -------------------------------------------------------------------------
     const controllers = Array.from({ length: MAX_PLAYERS }, () => new ControllerInput());
-    const multitap = requireElement<HTMLInputElement>('input[name="multitap"]');
-    const players = () => (multitap.checked ? MAX_PLAYERS : 2);
-    pointer = new PointerInput(canvas, (port) => controllers[port === 0 ? 0 : players() - 1]);
+    const multitap = requireElement<HTMLSelectElement>('select[name="multitap"]');
+    const tapPort = () => (multitap.value === '' ? null : Number(multitap.value));
+    const players = () => (tapPort() === null ? 2 : MAX_PLAYERS);
+    // Players go port by port, a Multitap's four in its port's place: port 2's first player is player 2 or 5.
+    pointer = new PointerInput(canvas, (port) => controllers[port === 0 ? 0 : tapPort() === 0 ? MAX_PLAYERS - 1 : 1]);
     pointer.setPadTypes(toolbar.padTypes);
     const applyMultitap = () => {
-      post({ type: 'multitap', plugged: multitap.checked });
+      post({ type: 'multitap', port: tapPort() });
       pointer.setPadTypes(toolbar.padTypes);
     };
     multitap.addEventListener('change', () => {

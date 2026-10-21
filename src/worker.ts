@@ -123,7 +123,7 @@ async function handle(message: ToWorker): Promise<void> {
       emu.machine.sio.pads[message.port]?.move(message.dx, message.dy);
       return;
     case 'multitap':
-      emu.setMultitap(message.plugged);
+      emu.setMultitap(message.port);
       sendStatus();
       return;
     case 'fast-seeks':

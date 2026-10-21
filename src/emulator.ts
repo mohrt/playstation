@@ -123,7 +123,7 @@ export class Emulator {
     this.clockDebt = 0;
   }
 
-  /** Each player's controls (players 1-4 are on port 1's Multitap when one is plugged in). */
+  /** Each player's controls, in `Sio.playerPads` order (a Multitap's four players take its port's place). */
   setPads(pads: PadState[]): void {
     const players = this.machine.sio.playerPads;
     pads.forEach((state, i) => {
@@ -131,8 +131,14 @@ export class Emulator {
     });
   }
 
-  setMultitap(plugged: boolean): void {
-    this.machine.sio.taps[0].plugged = plugged;
+  get multitapPort(): number | null {
+    const port = this.machine.sio.taps.findIndex((tap) => tap.plugged);
+    return port >= 0 ? port : null;
+  }
+
+  /** Plugs a Multitap into `port` (and unplugs the other one), or none. */
+  setMultitap(port: number | null): void {
+    this.machine.sio.taps.forEach((tap, i) => (tap.plugged = i === port));
   }
 
   setPadTypes(types: PadType[]): void {
@@ -162,7 +168,7 @@ export class Emulator {
       details: this.media?.details ?? '',
       bios: this.biosName,
       pads: this.machine.sio.pads.map((pad) => ({ type: pad.type, analog: pad.analog })),
-      multitap: this.machine.sio.taps[0].plugged,
+      multitap: this.multitapPort,
     };
   }
 
