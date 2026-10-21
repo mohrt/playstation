@@ -307,6 +307,17 @@ input[type='range'] {
   gap: 0.4rem;
 }
 
+.bios-source {
+  margin-top: 0.4rem !important;
+  font-size: 0.8rem;
+  color: #999;
+  text-align: center;
+}
+
+.bios-source a {
+  color: var(--accent-soft);
+}
+
 .boot-rom-status {
   color: #888;
 }
