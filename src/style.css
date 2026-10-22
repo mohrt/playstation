@@ -176,7 +176,8 @@ body.choosing-bios .controls {
 }
 
 .bios-rom-detail,
-.bios-rom-names {
+.bios-rom-names,
+.bios-tip {
   color: #aaa;
   font-size: 0.85rem;
 }
@@ -200,6 +201,7 @@ body.choosing-bios .controls {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 1.25rem;
+  margin-bottom: 0.75rem !important;
 }
 
 .bios-options label {
