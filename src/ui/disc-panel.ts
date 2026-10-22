@@ -16,9 +16,6 @@ export interface DiscPanelCallbacks {
   /** Downloads one of the free games and puts it in. */
   onGame(index: number): Promise<void>;
   onEject(): void;
-  onBiosFile(file: File): Promise<void>;
-  onUseBios(useOwn: boolean): void;
-  onForgetBios(): Promise<void>;
   onExportCard(slot: number): void;
   onImportCard(slot: number, file: File): Promise<void>;
   focusScreen(): void;
@@ -30,13 +27,12 @@ function requireChild<T extends Element>(root: Element, selector: string): T {
   return element;
 }
 
-/** The disc tray: drop or choose files, pick free games, and manage the BIOS and memory cards. */
+/** The disc tray: drop or choose files, pick free games, and manage the memory cards. */
 export class DiscPanel {
   private readonly fileInput: HTMLInputElement;
   private readonly message: HTMLElement;
   private readonly gamePicker: HTMLSelectElement;
   private readonly gameInfo: HTMLElement;
-  private readonly useBios: HTMLInputElement;
   private games: GameListing[] = [];
 
   constructor(
@@ -47,7 +43,6 @@ export class DiscPanel {
     this.message = requireChild(root, '.cart-message');
     this.gamePicker = requireChild(root, 'select[name="bundled-game"]');
     this.gameInfo = requireChild(root, '.game-info');
-    this.useBios = requireChild(root, 'input[name="use-own-bios"]');
 
     this.gamePicker.addEventListener('change', () => this.showGameInfo());
     requireChild<HTMLButtonElement>(root, '[data-action="play-game"]').addEventListener('click', () => {
@@ -73,21 +68,6 @@ export class DiscPanel {
     requireChild<HTMLButtonElement>(root, '[data-action="eject"]').addEventListener('click', () => {
       this.callbacks.onEject();
       this.callbacks.focusScreen();
-    });
-
-    const biosInput = requireChild<HTMLInputElement>(root, 'input[name="bios-file"]');
-    requireChild<HTMLButtonElement>(root, '[data-action="choose-bios"]').addEventListener('click', () => biosInput.click());
-    biosInput.addEventListener('change', () => {
-      const file = biosInput.files?.[0];
-      biosInput.value = '';
-      if (file) this.run(() => this.callbacks.onBiosFile(file));
-    });
-    this.useBios.addEventListener('change', () => {
-      this.callbacks.onUseBios(this.useBios.checked);
-      this.callbacks.focusScreen();
-    });
-    requireChild<HTMLButtonElement>(root, '[data-action="forget-bios"]').addEventListener('click', () => {
-      if (confirm('Forget your BIOS? The console will use OpenBIOS again.')) this.run(() => this.callbacks.onForgetBios());
     });
 
     root.querySelectorAll<HTMLElement>('[data-card]').forEach((row) => {
@@ -156,14 +136,6 @@ export class DiscPanel {
 
   showEmpty(): void {
     this.root.dataset.state = 'empty';
-  }
-
-  /** Shows whether the player's own BIOS is kept, and its name. */
-  showBios(name: string | null, inUse: boolean): void {
-    requireChild(this.root, '.boot-rom-status').textContent = name ? `${name} kept in this browser` : 'Using OpenBIOS, the free BIOS';
-    requireChild<HTMLButtonElement>(this.root, '[data-action="forget-bios"]').hidden = !name;
-    this.useBios.disabled = !name;
-    this.useBios.checked = inUse && name !== null;
   }
 
   setGames(games: GameListing[]): void {

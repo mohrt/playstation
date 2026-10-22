@@ -80,6 +80,187 @@ main {
   display: none;
 }
 
+/* BIOS setup: shown in place of the screen while choosing the BIOS */
+
+body.choosing-bios #screen,
+body.choosing-bios .paused-label,
+body.choosing-bios .empty-label,
+body.choosing-bios .toolbar,
+body.choosing-bios .cart-panel,
+body.choosing-bios .controls {
+  display: none !important;
+}
+
+.bios-setup {
+  width: var(--screen-width);
+  min-height: calc(var(--screen-width) / var(--screen-aspect));
+  box-sizing: border-box;
+  padding: 1.5rem 1.75rem;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  background: #1a1a1a;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.bios-setup[hidden] {
+  display: none;
+}
+
+.bios-setup p {
+  margin: 0;
+}
+
+.bios-setup h1 {
+  margin: 0 0 0.5rem;
+  color: #fff;
+  font-size: 1.4rem;
+}
+
+.bios-setup-lead {
+  color: #bbb;
+  line-height: 1.45;
+}
+
+.bios-setup code {
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #fff;
+  font-size: 0.85em;
+}
+
+.bios-setup a {
+  color: var(--accent-soft);
+}
+
+.bios-rom {
+  display: grid;
+  gap: 0.25rem;
+  margin: 1rem 0;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #3d3d3d;
+  border-left: 4px solid #ff8a80;
+  border-radius: 6px;
+  background: #202020;
+}
+
+.bios-rom.optional,
+.bios-rom[data-state='warning'] {
+  border-left-color: #c9a227;
+}
+
+.bios-rom[data-state='loaded'] {
+  border-left-color: #9ad284;
+}
+
+.bios-rom-heading strong {
+  color: #eee;
+  font-size: 1rem;
+}
+
+.bios-need {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: #3d2424;
+  color: #ff8a80;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.optional .bios-need {
+  background: #3d3524;
+  color: #c9a227;
+}
+
+.bios-rom-detail,
+.bios-rom-names {
+  color: #aaa;
+  font-size: 0.85rem;
+}
+
+.bios-rom-status {
+  color: #ff8a80;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.optional[data-state='missing'] .bios-rom-status,
+.bios-rom[data-state='warning'] .bios-rom-status {
+  color: #c9a227;
+}
+
+.bios-rom[data-state='loaded'] .bios-rom-status {
+  color: #9ad284;
+}
+
+.bios-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+}
+
+.bios-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bios-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bios-setup button {
+  padding: 0.5rem 1.1rem;
+  font-size: inherit;
+}
+
+.bios-setup button.primary {
+  border-color: var(--accent);
+  background: #1f3a63;
+  color: #fff;
+}
+
+.bios-setup-message:not(:empty) {
+  margin-top: 0.75rem !important;
+  color: #ff8a80;
+}
+
+.bios-storage-note:not(:empty) {
+  margin-top: 0.75rem !important;
+  color: #c9a227;
+}
+
+.bios-setup-message.warning {
+  color: #c9a227;
+}
+
+.bios-drop-hint {
+  display: none;
+  padding: 2rem 0;
+  color: #fff;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.bios-setup.drag-over {
+  border-style: solid;
+  background: #1a2538;
+}
+
+.bios-setup.drag-over > :not(.bios-drop-hint) {
+  display: none;
+}
+
+.bios-setup.drag-over .bios-drop-hint {
+  display: block;
+}
+
 #status {
   margin: 0;
   font-size: 0.85rem;
@@ -305,21 +486,6 @@ input[type='range'] {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-}
-
-.bios-source {
-  margin-top: 0.4rem !important;
-  font-size: 0.8rem;
-  color: #999;
-  text-align: center;
-}
-
-.bios-source a {
-  color: var(--accent-soft);
-}
-
-.boot-rom-status {
-  color: #888;
 }
 
 .game-info {

@@ -14,6 +14,48 @@
         <canvas id="screen" width="320" height="240" tabindex="0" aria-label="PlayStation screen"></canvas>
         <p class="paused-label">Paused</p>
         <p class="empty-label">Insert a disc to switch on</p>
+        <section id="bios-setup" class="bios-setup" aria-labelledby="bios-setup-title" hidden>
+          <h1 id="bios-setup-title">PlayStation BIOS</h1>
+          <p class="bios-setup-lead">
+            The emulator starts with OpenBIOS, the free BIOS written by the PCSX-Redux team, so no BIOS of your own is
+            needed. Some games need Sony's BIOS: if one doesn't start, choose or drop your own console's BIOS image
+            file. Sony's BIOS is still under copyright, so none is included here. Yours stays in this browser and is
+            never sent anywhere. The browser remembers it, so you only need to do this once.
+          </p>
+          <div class="bios-rom optional" data-state="missing">
+            <p class="bios-rom-heading"><strong>Your PlayStation BIOS</strong> <span class="bios-need">Optional</span></p>
+            <p class="bios-rom-detail">
+              The BIOS ROM from your own console. Exactly 512 KB (524,288 bytes). Known dumps are named by console
+              model (SCPH-1001 and so on); a known damaged dump of the SCPH-5502 is refused (it crashes before the Sony
+              logo).
+            </p>
+            <p class="bios-rom-names">
+              Often named <code>scph1001.bin</code>, <code>scph5501.bin</code> or <code>scph7502.bin</code>. The
+              retrobios collection keeps Sony's BIOSes in its
+              <a href="https://github.com/Abdess/retrobios/tree/main/bios/Sony/PlayStation" target="_blank" rel="noopener"><code>PlayStation</code></a>
+              folder, named by model: <code>scph1001.bin</code> (USA), <code>scph1002.bin</code> (Europe) and
+              <code>scph1000.bin</code> (Japan).
+            </p>
+            <p class="bios-rom-status"></p>
+          </div>
+          <p class="bios-options">
+            <label title="Start with your own BIOS (from your console) instead of OpenBIOS">
+              <input type="checkbox" name="use-own-bios" /> Use my BIOS
+            </label>
+            <label title="Start discs without the BIOS's logos (takes effect when the console next starts)">
+              <input type="checkbox" name="fast-boot" /> Skip BIOS intro
+            </label>
+          </p>
+          <div class="bios-actions">
+            <button type="button" class="primary" data-action="choose-bios">Choose BIOS file...</button>
+            <button type="button" data-action="forget-bios" hidden>Forget</button>
+            <button type="button" data-action="back">Back to the console</button>
+          </div>
+          <p class="bios-setup-message" role="alert"></p>
+          <p class="bios-storage-note"></p>
+          <p class="bios-drop-hint">Release to load the BIOS</p>
+          <input type="file" name="bios-file" accept=".bin,.rom" hidden />
+        </section>
       </div>
 
       <section id="toolbar" class="toolbar" aria-label="Console">
@@ -22,6 +64,7 @@
           <button type="button" data-action="reset" title="The console's Reset button">Reset</button>
           <button type="button" data-action="power" title="Switch the console off and on again">Power cycle</button>
           <button type="button" data-action="fullscreen" title="Esc leaves full screen">Full screen</button>
+          <button type="button" data-action="change-bios" title="Use your own console's BIOS instead of OpenBIOS">BIOS...</button>
         </span>
         <span class="toolbar-group">
           <select name="pad1" aria-label="Controller 1" title="The controller in port 1">
@@ -80,24 +123,9 @@
           <p class="game-info"></p>
         </div>
         <p class="bios-row">
-          <label title="Start with your own BIOS (from your console) instead of OpenBIOS">
-            <input type="checkbox" name="use-own-bios" /> Use my BIOS
-          </label>
-          <label title="Start discs without the BIOS's logos (takes effect when the console next starts)">
-            <input type="checkbox" name="fast-boot" /> Skip BIOS intro
-          </label>
           <label title="Seek on the disc in a few milliseconds instead of as long as the drive takes (shorter loading; a few games may not like it)">
             <input type="checkbox" name="fast-seeks" /> Fast CD loading
           </label>
-          <span class="boot-rom-status">Using OpenBIOS, the free BIOS</span>
-          <button type="button" data-action="choose-bios" title="Your own PlayStation BIOS image (512K); none is needed">Add BIOS...</button>
-          <button type="button" data-action="forget-bios" hidden>Forget</button>
-        </p>
-        <p class="bios-source">
-          The retrobios collection keeps Sony's BIOSes in its
-          <a href="https://github.com/Abdess/retrobios/tree/main/bios/Sony/PlayStation" target="_blank" rel="noopener"><code>PlayStation</code></a>
-          folder, named by model: <code>scph1001.bin</code> (USA), <code>scph1002.bin</code> (Europe) and
-          <code>scph1000.bin</code> (Japan).
         </p>
         <p class="bios-row" data-card="0">
           Memory card 1:
@@ -114,7 +142,6 @@
         <p class="cart-drop-hint">Release to insert</p>
         <p class="cart-message" role="status"></p>
         <input type="file" name="disc-files" accept=".cue,.bin,.img,.iso,.chd,.pbp,.exe,.psx,.psxstate,.mcr,.mcd,.mem,.gme" multiple hidden />
-        <input type="file" name="bios-file" accept=".bin,.rom" hidden />
       </section>
 
       <section id="controls" class="controls" aria-label="Controllers">

@@ -13,6 +13,7 @@ import { BiosStore, biosName, checkBios, looksLikeBios } from './storage/bios-st
 import { MemoryCards, readMemoryCardFile } from './storage/memory-cards';
 import { SaveStates, type SaveStateRecord } from './storage/save-states';
 import { memoryStores, openBrowserStores, type KeyValueStore } from './storage/store';
+import { BiosSetup } from './ui/bios-setup';
 import { DiscPanel } from './ui/disc-panel';
 import { downloadFile } from './ui/download';
 import { Settings } from './ui/settings';
@@ -68,6 +69,8 @@ async function main(): Promise<void> {
 
     const stores = await openBrowserStores().catch((error: unknown) => {
       console.warn('Browser storage is unavailable; saves will last until the page is closed.', error);
+      requireElement<HTMLElement>('.bios-storage-note').textContent =
+        "This browser isn't letting the page store files, so your BIOS will be forgotten when you close it.";
       return memoryStores();
     });
     const saveStates = new SaveStates(stores.saveStates as KeyValueStore<SaveStateRecord>);
@@ -195,7 +198,7 @@ async function main(): Promise<void> {
     // --- BIOS ---------------------------------------------------------------------------
     const applyBios = () => {
       post({ type: 'bios', userBios, useUserBios: useOwnBios });
-      discPanel.showBios(userBios ? biosName(userBios) : null, useOwnBios);
+      biosSetup.showBios(userBios ? biosName(userBios) : null, useOwnBios);
       try {
         localStorage.setItem(USE_OWN_BIOS_KEY, String(useOwnBios));
       } catch {
@@ -209,7 +212,7 @@ async function main(): Promise<void> {
       userBios = image;
       useOwnBios = true;
       applyBios();
-      discPanel.showMessage(`${biosName(image)} kept in this browser; the console was switched off and on to use it.`, true);
+      return `${biosName(image)} kept in this browser; the console was switched off and on to use it.`;
     };
 
     // --- Files --------------------------------------------------------------------------
@@ -235,7 +238,7 @@ async function main(): Promise<void> {
       }
       const bios = files.find((file) => file.size === 0x80000 && (looksLikeBios(file.name) || fileKind(file.name) === 'other'));
       if (bios && files.length === 1) {
-        await useBiosImage(new Uint8Array(await bios.arrayBuffer()));
+        discPanel.showMessage(await useBiosImage(new Uint8Array(await bios.arrayBuffer())), true);
         return;
       }
       // Another disc of the game that's running goes in without a restart, as on the console.
@@ -257,6 +260,11 @@ async function main(): Promise<void> {
         post({ type: 'eject' });
         discPanel.showEmpty();
       },
+      onExportCard: (slot) => downloadFile(cardData[slot], `memory-card-${slot + 1}.mcr`),
+      onImportCard: importCard,
+      focusScreen,
+    });
+    const biosSetup = new BiosSetup(requireElement('#bios-setup'), {
       onBiosFile: async (file) => useBiosImage(new Uint8Array(await file.arrayBuffer())),
       onUseBios: (useOwn) => {
         useOwnBios = useOwn && userBios !== null;
@@ -268,18 +276,20 @@ async function main(): Promise<void> {
         useOwnBios = false;
         applyBios();
       },
-      onExportCard: (slot) => downloadFile(cardData[slot], `memory-card-${slot + 1}.mcr`),
-      onImportCard: importCard,
-      focusScreen,
+      onClose: () => {
+        post({ type: 'pause', paused });
+        audio?.flush();
+        focusScreen();
+      },
     });
-    discPanel.showBios(userBios ? biosName(userBios) : null, useOwnBios);
+    biosSetup.showBios(userBios ? biosName(userBios) : null, useOwnBios);
 
     const refreshStates = async () => toolbar.setStates(await saveStates.list());
     const toolbar = attachToolbar(requireElement('#toolbar'), {
       onPause: (pause) => {
         paused = pause;
         screenFrame.classList.toggle('paused', pause);
-        post({ type: 'pause', paused: pause });
+        post({ type: 'pause', paused: pause || biosSetup.isOpen });
         audio?.flush();
       },
       onReset: () => post({ type: 'reset' }),
@@ -327,6 +337,12 @@ async function main(): Promise<void> {
     });
     await refreshStates();
     post({ type: 'pad-types', types: toolbar.padTypes });
+
+    requireElement<HTMLButtonElement>('#toolbar [data-action="change-bios"]').addEventListener('click', () => {
+      post({ type: 'pause', paused: true });
+      audio?.flush();
+      biosSetup.open();
+    });
 
     void loadGameManifest(import.meta.env.BASE_URL).then((games) => {
       bundledGames = games;
