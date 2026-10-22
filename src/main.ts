@@ -1,3 +1,4 @@
+import { trackGameLoaded } from './analytics';
 import { AudioOutput } from './audio/audio-output';
 import { fetchGame, loadGameManifest, type BundledGame } from './games';
 import { ControllerInput } from './io/controllers';
@@ -246,6 +247,7 @@ async function main(): Promise<void> {
       const current = consoleStatus?.kind === 'disc' ? consoleStatus.title : null;
       const sameGame = disc && current !== null && gameName(titleFromFileName(disc.name)) === gameName(current) && titleFromFileName(disc.name) !== current;
       post({ type: 'media', files, swap: swap || !!sameGame });
+      if (!swap && !sameGame) trackGameLoaded('playstation');
     };
 
     // --- Panels -------------------------------------------------------------------------
@@ -255,6 +257,7 @@ async function main(): Promise<void> {
       onGame: async (index) => {
         const game = bundledGames[index];
         post({ type: 'media', files: [await fetchGame(import.meta.env.BASE_URL, game)], title: game.title });
+        trackGameLoaded('playstation', game.title);
       },
       onEject: () => {
         post({ type: 'eject' });
