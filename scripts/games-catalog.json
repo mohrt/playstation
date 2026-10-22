@@ -10,6 +10,18 @@
       "licenseFile": "https://raw.githubusercontent.com/Logan-Campbell/Tetrade/5155664152162a0dc04dc1f0d4f3c807c1e15388/LICENSE",
       "sourceUrl": "https://github.com/Logan-Campbell/Tetrade",
       "hint": "Falling blocks for one or two players, on disc. Cross and circle rotate, up drops, down speeds the fall."
+    },
+    {
+      "title": "VoXide",
+      "file": "voxide.bin",
+      "url": "https://github.com/tuuchen/ai-game-portal-ps1/releases/download/ps1-homebrew-2026-09-14/voxide-v0.1.11.zip",
+      "sha256": "a9f20b0d3d3620725b6fbf2ebfabe8c07a9f1225fbdb9c74a3ccdd0145dd12bb",
+      "zipEntry": "voxide.bin",
+      "credit": "Emanuele Bonura (Bonnie Studios)",
+      "license": "GPL-2.0-or-later (textures and sounds CC0)",
+      "licenseFile": "https://raw.githubusercontent.com/EBonura/voxide/0ad45c42b13e9973c032541f933499c22ed9d581/LICENSE",
+      "sourceUrl": "https://github.com/EBonura/voxide/tree/0ad45c42b13e9973c032541f933499c22ed9d581",
+      "hint": "A Minecraft-style survival sandbox, early build. Best with a DualShock: left stick moves, right stick looks (the D-pad walks and turns). Cross jumps, R2 mines, L2 places, Square crafts."
     }
   ]
 }
