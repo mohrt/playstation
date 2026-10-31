@@ -87,7 +87,8 @@ body.choosing-bios .paused-label,
 body.choosing-bios .empty-label,
 body.choosing-bios .toolbar,
 body.choosing-bios .cart-panel,
-body.choosing-bios .controls {
+body.choosing-bios .controls,
+body.choosing-bios .pad {
   display: none !important;
 }
 
@@ -562,7 +563,7 @@ input[type='range'] {
   align-items: center;
   column-gap: 1.5rem;
   row-gap: 0.6rem;
-  margin: 0.75rem auto 0;
+  margin: 0 auto;
   padding: 0.9rem 1.4rem;
   max-width: 32rem;
   border-radius: 10px;
@@ -712,6 +713,16 @@ input[type='range'] {
   color: #777;
   font-size: 0.8rem;
   text-align: center;
+}
+
+@media (max-width: 900px) {
+  main {
+    justify-content: flex-start;
+  }
+
+  body:has(.pad:not([hidden])) {
+    --screen-width: min(96vw, calc((100dvh - 17rem) * var(--screen-aspect)));
+  }
 }
 
 /* The DualShock's red light when its sticks are on. */
